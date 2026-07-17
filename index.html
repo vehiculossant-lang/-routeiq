@@ -8,7 +8,14 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, setDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import {
+    getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc,
+    query, orderBy, serverTimestamp, setDoc, getDoc, getDocs
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import {
+    getAuth, signInAnonymously, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
   const firebaseConfig = {
     apiKey: "AIzaSyAjsKAYh9m4M03Uk1zK7VLmJ0vGO1cvcek",
     authDomain: "link-mensajeria-santander.firebaseapp.com",
@@ -17,12 +24,38 @@
     messagingSenderId: "1055967433955",
     appId: "1:1055967433955:web:89da4572d4b4ecec5061d6"
   };
+
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  const auth = getAuth(app);
+
   window.db = db;
+  window.auth = auth;
   window.fbFns = { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, setDoc, getDoc, getDocs };
-  window.firebaseReady = true;
-  document.dispatchEvent(new Event('firebaseReady'));
+
+  // Espera a que exista sesión (aunque sea anónima) antes de avisarle al
+  // resto de la app que puede leer/escribir Firestore.
+  let firebaseReadyDispatched = false;
+  onAuthStateChanged(auth, (user) => {
+    if (user && !firebaseReadyDispatched) {
+      firebaseReadyDispatched = true;
+      window.firebaseReady = true;
+      document.dispatchEvent(new Event('firebaseReady'));
+    }
+  });
+
+  signInAnonymously(auth).catch((err) => {
+    console.error('No se pudo iniciar sesión anónima:', err);
+    // Fallback: no dejar la app colgada en la pantalla de carga si el
+    // login anónimo falla (ej. restricción de referrer de la API key).
+    // Preserva el comportamiento previo a este cambio: la app arranca
+    // igual, solo sin sesión confirmada.
+    if (!firebaseReadyDispatched) {
+      firebaseReadyDispatched = true;
+      window.firebaseReady = true;
+      document.dispatchEvent(new Event('firebaseReady'));
+    }
+  });
 </script>
 
 <style>
@@ -4449,15 +4482,17 @@ function selFechaMode(mode){
   } else {
     const fd = document.getElementById('fFecha');
     if(fd && !fd.value){
-      fd.value = new Date().toISOString().slice(0,10);
+      fd.value = cronFechaStr(new Date());
     }
   }
   checkConflictos();
 }
 
 function getFechaSeleccionada(){
-  if(fechaMode === 'hoy') return new Date().toISOString().slice(0,10);
-  return document.getElementById('fFecha')?.value || new Date().toISOString().slice(0,10);
+  // cronFechaStr da la fecha LOCAL (no UTC) — necesario para que "hoy"
+  // no cambie de día antes de tiempo según la hora/zona horaria.
+  if(fechaMode === 'hoy') return cronFechaStr(new Date());
+  return document.getElementById('fFecha')?.value || cronFechaStr(new Date());
 }
 
 function checkConflictos(){
@@ -4652,8 +4687,8 @@ function goToPreview(){
   const obs = document.getElementById('fObs')?.value.trim()||'';
   const mName = APP.mensajero ? APP.mensajero.name : 'Por asignar';
   const now = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
-  const fecha = getFechaSeleccionada ? getFechaSeleccionada() : new Date().toISOString().slice(0,10);
-  const hoy = new Date().toISOString().slice(0,10);
+  const fecha = getFechaSeleccionada ? getFechaSeleccionada() : cronFechaStr(new Date());
+  const hoy = cronFechaStr(new Date());
   APP._esFutura = fecha !== hoy;
   const pLabel = APP.prioridad==='alta'?'ALTA':APP.prioridad==='media'?'MEDIA':'BAJA';
   let msg;
@@ -4699,8 +4734,8 @@ async function sendSolicitud(){
   const mName = APP.mensajero ? APP.mensajero.name : 'Por asignar';
   const pLabel = APP.prioridad==='alta'?'ALTA':APP.prioridad==='media'?'MEDIA':'BAJA';
   const now = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
-  const fecha = getFechaSeleccionada ? getFechaSeleccionada() : new Date().toISOString().slice(0,10);
-  const hoy = new Date().toISOString().slice(0,10);
+  const fecha = getFechaSeleccionada ? getFechaSeleccionada() : cronFechaStr(new Date());
+  const hoy = cronFechaStr(new Date());
   const esFutura = fecha !== hoy;
 
   // Build message — Transporte de Personal gets special format
@@ -6099,8 +6134,14 @@ function cronGetLunesDeSemana(offset){
 }
 
 function cronFechaStr(date){
-  // Devuelve YYYY-MM-DD
-  return date.toISOString().slice(0,10);
+  // Devuelve YYYY-MM-DD en la ZONA HORARIA LOCAL (no usar toISOString/UTC
+  // aquí: eso desfasa la fecha de "hoy" según la hora del día y el huso
+  // horario, y hacía que las solicitudes de hoy desaparecieran del
+  // cronograma después de cierta hora).
+  const y = date.getFullYear();
+  const m = String(date.getMonth()+1).padStart(2,'0');
+  const d = String(date.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+d;
 }
 
 function cronHoraLabel(slotIdx){
@@ -6209,7 +6250,11 @@ function cronRenderGantt(theadId, bodyId, weekLabelId){
   // Fecha real de una solicitud: fechaProgramada > tiempoCreado > nulo
   function fechaSol(s){
     if(s.fechaProgramada) return s.fechaProgramada;
-    if(s.tiempoCreado) return s.tiempoCreado.slice(0,10);
+    // OJO: tiempoCreado es un ISO string (UTC). Cortarlo con slice(0,10)
+    // da la fecha en UTC, no la fecha local en la que realmente se creó
+    // la solicitud — hay que pasarlo por Date + cronFechaStr para
+    // convertirlo de vuelta a la fecha local correcta.
+    if(s.tiempoCreado) return cronFechaStr(new Date(s.tiempoCreado));
     return null;
   }
 
@@ -6338,7 +6383,11 @@ function cronRenderStatusList(){
 
   function fechaSol(s){
     if(s.fechaProgramada) return s.fechaProgramada;
-    if(s.tiempoCreado) return s.tiempoCreado.slice(0,10);
+    // OJO: tiempoCreado es un ISO string (UTC). Cortarlo con slice(0,10)
+    // da la fecha en UTC, no la fecha local en la que realmente se creó
+    // la solicitud — hay que pasarlo por Date + cronFechaStr para
+    // convertirlo de vuelta a la fecha local correcta.
+    if(s.tiempoCreado) return cronFechaStr(new Date(s.tiempoCreado));
     return null;
   }
 
