@@ -1152,10 +1152,6 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
               <div class="cron-leyenda-text"><span class="cron-leyenda-name">Pedro — en vuelta (naranja)</span><span class="cron-leyenda-sub">Área · Solicitante · Prioridad · Duración estimada</span></div>
             </div>
             <div class="cron-leyenda-item">
-              <div class="cron-leyenda-box" style="background:#8B5CF6;"><span style="font-size:9px;color:white;font-weight:700;">Área</span></div>
-              <div class="cron-leyenda-text"><span class="cron-leyenda-name">Hugo — en vuelta (morado)</span><span class="cron-leyenda-sub">Área · Solicitante · Prioridad · Duración estimada</span></div>
-            </div>
-            <div class="cron-leyenda-item">
               <div class="cron-leyenda-box" style="background:#94A3B8;"><span style="font-size:9px;color:white;font-weight:700;">Área</span></div>
               <div class="cron-leyenda-text"><span class="cron-leyenda-name">Víctor — en vuelta (gris)</span><span class="cron-leyenda-sub">Área · Solicitante · Prioridad · Duración estimada</span></div>
             </div>
@@ -1339,7 +1335,6 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
             <option value="pedro">Pedro · 8am-6pm</option>
           </optgroup>
           <optgroup label="🌙 Turno Nocturno">
-            <option value="hugo">Hugo · 7pm-6am</option>
             <option value="victor">Víctor · 7pm-6am</option>
           </optgroup>
         </select>
@@ -2311,7 +2306,6 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
             <option value="pedro">Pedro</option>
           </optgroup>
           <optgroup label="🌙 Turno Nocturno">
-            <option value="hugo">Hugo</option>
             <option value="victor">Víctor</option>
           </optgroup>
         </select>
@@ -2496,7 +2490,7 @@ const MENSAJEROS_DATA={
   ivan:  {name:'Iván',   initials:'IV', zone:'Todas las áreas',      pin:'1234', turno:'matutino', inicio:9,  fin:19},
   moises:{name:'Moisés', initials:'MO', zone:'Todas las áreas',      pin:'1234', turno:'matutino', inicio:8,  fin:18},
   pedro: {name:'Pedro',  initials:'PE', zone:'MMS Multiservicios',   pin:'1234', turno:'matutino', inicio:8,  fin:18},
-  hugo:  {name:'Hugo',   initials:'HU', zone:'Turno nocturno',       pin:'1234', turno:'nocturno', inicio:19, fin:6},
+  hugo:  {name:'Hugo',   initials:'HU', zone:'Turno nocturno',       pin:'1234', turno:'nocturno', inicio:19, fin:6, activo:false},
   victor:{name:'Víctor', initials:'VI', zone:'Turno nocturno',       pin:'1234', turno:'nocturno', inicio:19, fin:6},
 };
 
@@ -2565,6 +2559,7 @@ function getMensajerosActivos(){
   const h=new Date().getHours(),m=new Date().getMinutes(),dec=h+(m/60);
   return Object.keys(MENSAJEROS_DATA).filter(k=>{
     const ms=MENSAJEROS_DATA[k];
+    if(ms.activo===false) return false; // dado de baja — nunca disponible para asignación
     if(ms.turno==='matutino') return dec>=(ms.inicio-0.5)&&dec<=(ms.fin+0.5);
     if(ms.turno==='nocturno') return dec>=(ms.inicio-0.5)||dec<=(ms.fin+0.5);
     return true;
@@ -2583,7 +2578,7 @@ function updateShiftUI(){
     si.style.borderColor='rgba(61,156,240,0.2)';
     if(sIcon)sIcon.textContent='🌙';
     if(sLabel)sLabel.textContent='Turno nocturno activo';
-    if(sTime)sTime.textContent='Hugo y Víctor en turno · 7:00pm — 6:00am';
+    if(sTime)sTime.textContent='Víctor en turno · 7:00pm — 6:00am';
     if(sBadge){sBadge.className='shift-badge night';sBadge.textContent='🌙 NOCHE';}
   } else if(shift==='overlap'){
     si.style.borderColor='rgba(255,165,2,0.3)';
@@ -2954,6 +2949,10 @@ function verifyMPin(){
   if(checkPinBloqueado('m')){mPinBuf='';updMDots();return;}
   const who=document.getElementById('mWho').value;
   if(!who){showPinErr('mPinError','⚠️ Selecciona tu nombre');mPinBuf='';updMDots();return;}
+  if(MENSAJEROS_DATA[who]?.activo===false){
+    showPinErr('mPinError','🚫 Cuenta inactiva. Contacta a Coordinación.');
+    mPinBuf='';updMDots();return;
+  }
   const pin=APP.cfgPins[who]||MENSAJEROS_DATA[who]?.pin||'1234';
   if(mPinBuf===pin){
     mPinIntentos=0;
@@ -3719,7 +3718,7 @@ function renderAdminSols(){
               if(ausencia) return '';
               const st = APP.mensajeroEstatus[k]||'disponible';
               const pending = (APP.solicitudes||[]).filter(s=>s.mensajeroId===k&&s.status!=='completada'&&s.status!=='cancelada').length;
-              const stLabel = stLabel(st,false);
+              const stLbl = stLabel(st,false);
               return '<option value="'+k+'">'+MENSAJEROS_DATA[k].name+' · '+stLbl+' · '+pending+' vuelta'+(pending!==1?'s':'')+' pendiente'+(pending!==1?'s':'')+'</option>';
             }).filter(Boolean).join('')}
           </select>
@@ -5062,7 +5061,7 @@ function renderMensajeroListAreaConAusencias(){
 
     const cards = activoKeys.map(k => {
       const m = MENSAJEROS_DATA[k];
-      if(!m) return '';
+      if(!m || m.activo===false) return ''; // dado de baja — nunca se ofrece para nuevas solicitudes
 
       // Check ausencia for selected date
       const ausencia = getAusenciaParaFecha(k, fecha);
@@ -5466,7 +5465,9 @@ function renderEstadoEnVivo(){
   if(!container) return;
   const fecha = new Date().toISOString().slice(0,10);
   const activoKeys = getMensajerosActivos ? getMensajerosActivos() : Object.keys(MENSAJEROS_DATA);
-  container.innerHTML = Object.keys(MENSAJEROS_DATA).map(k=>{
+  // Dados de baja (activo:false): fuera de esta vista en vivo por completo,
+  // no solo atenuados — solo se conservan para reportes/histórico.
+  container.innerHTML = Object.keys(MENSAJEROS_DATA).filter(k=>MENSAJEROS_DATA[k].activo!==false).map(k=>{
     const m = MENSAJEROS_DATA[k];
     const st = APP.mensajeroEstatus[k]||'disponible';
     const isActivo = activoKeys.includes(k);
@@ -5591,7 +5592,8 @@ function renderSemaforoConAusencias(sols){
   const activoKeys = getMensajerosActivos ? getMensajerosActivos() : Object.keys(MENSAJEROS_DATA);
   const hoy = new Date().toISOString().slice(0,10);
 
-  return Object.keys(MENSAJEROS_DATA).map(k => {
+  // Semáforo es vista EN VIVO — dados de baja (activo:false) quedan fuera.
+  return Object.keys(MENSAJEROS_DATA).filter(k=>MENSAJEROS_DATA[k].activo!==false).map(k => {
     const m = MENSAJEROS_DATA[k];
     const st = APP.mensajeroEstatus[k]||'disponible';
     const vueltas = (sols||[]).filter(s=>s.mensajeroId===k).length;
@@ -6403,8 +6405,13 @@ function cronRenderStatusList(){
   // Solicitudes de HOY para contar vueltas
   const solsHoy = (APP.solicitudes||[]).filter(s => !s.cancelada && fechaSol(s) === hoy);
 
+  // "Estado actual" es una vista EN VIVO — los mensajeros dados de baja
+  // (activo:false) no deben aparecer aquí, aunque sí sigan existiendo
+  // para el Gantt histórico y los reportes.
+  const mensajerosVisibles = CRON_MENSAJEROS.filter(m => MENSAJEROS_DATA[m.id]?.activo !== false);
+
   let html = '';
-  CRON_MENSAJEROS.forEach(m => {
+  mensajerosVisibles.forEach(m => {
     const misSols = solsHoy.filter(s => normId(s.mensajeroId||s.mensajeroNombre||'') === m.id);
     const vueltas = misSols.length;
 
@@ -6428,7 +6435,7 @@ function cronRenderStatusList(){
     } else if(estatusReal === 'alimentos'){
       badgeClass='alimentos'; badgeLabel='🍽️ En alimentos';
     } else if(vueltas > 0){
-      const minV = Math.min(...CRON_MENSAJEROS.map(x =>
+      const minV = Math.min(...mensajerosVisibles.map(x =>
         solsHoy.filter(s => normId(s.mensajeroId||s.mensajeroNombre||'') === x.id).length
       ));
       if(vueltas === minV) badgeLabel = '⭐ Menos carga';
