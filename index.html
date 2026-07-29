@@ -2239,6 +2239,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
     <div class="field-group"><div class="field-label">Hora estimada de regreso *</div><input class="field-input" type="time" id="vrHoraRegreso"></div>
     <div class="field-group"><div class="field-label">Motivo / Destino *</div><input class="field-input" type="text" id="vrMotivo" placeholder="Ej. Entrega laboratorio Centro"></div>
     <div id="vrFuturaNota" style="display:none;background:var(--blue-pale);border:1px solid rgba(61,156,240,0.3);border-radius:var(--radius-xs);padding:10px 12px;margin-bottom:10px;font-size:11.5px;color:var(--blue);line-height:1.5;">📅 Esta es una reserva a futuro: no se pide kilometraje ni gasolina todavía. El día de uso, presiona "🔑 Iniciar Salida Programada" en la tarjeta del vehículo.</div>
+    <div id="vrInmediataNota" style="display:none;background:rgba(0,200,150,0.08);border:1px solid rgba(0,200,150,0.3);border-radius:var(--radius-xs);padding:10px 12px;margin-bottom:10px;font-size:11.5px;color:var(--iq-green);line-height:1.5;">🟢 Salida en tiempo real: ingresa kilometraje y gasolina para notificar a Guardia/Caseta.</div>
     <div id="vrKmGasBlock">
       <div class="field-group"><div class="field-label">Kilometraje de salida *</div><input class="field-input" type="text" id="vrKmSalida" placeholder="Ej. 45230 (o N/A si no se ve)" inputmode="numeric"></div>
       <div class="field-group"><div class="field-label">Nivel de gasolina al salida *</div><div id="vrGasScale"></div></div>
@@ -7213,21 +7214,30 @@ function vAbrirReservaDirecta(placas){
     openModal('vReservaModal');
   });
 }
-// ¿La fecha/hora elegidas en el formulario de reserva son "ahora mismo" o una reserva a futuro?
+// Ventana de gracia: si la salida elegida está a 30 min o menos de "ahora"
+// (o ya pasó hoy), se trata como checkout inmediato, no reserva a futuro.
+const V_RESERVA_INMEDIATA_MIN=30;
+// ¿La fecha/hora elegidas en el formulario de reserva son "ahora mismo"
+// (uso inmediato / checkout) o una reserva a futuro?
 function vEsReservaInmediata(){
   const fechaUso=document.getElementById('vrFechaUso')?.value||'';
   const horaInicio=document.getElementById('vrHoraInicio')?.value||'';
-  const hoy=new Date().toISOString().slice(0,10);
-  const ahora=String(new Date().getHours()).padStart(2,'0')+':'+String(new Date().getMinutes()).padStart(2,'0');
-  return fechaUso===hoy&&horaInicio<=ahora;
+  if(!fechaUso||!horaInicio) return false;
+  const[y,m,d]=fechaUso.split('-').map(Number);
+  const[hh,mm]=horaInicio.split(':').map(Number);
+  const salida=new Date(y,(m-1),d,hh,mm,0,0); // hora local, no UTC
+  const diffMin=(salida.getTime()-Date.now())/60000; // negativo si ya pasó
+  return diffMin<=V_RESERVA_INMEDIATA_MIN;
 }
 // Reserva a futuro: oculta km/gasolina (se piden hasta "Iniciar Salida Programada")
 function vActualizarVisibilidadKmGas(){
   const inmediato=vEsReservaInmediata();
   const bloque=document.getElementById('vrKmGasBlock');
-  const nota=document.getElementById('vrFuturaNota');
+  const notaFutura=document.getElementById('vrFuturaNota');
+  const notaInmediata=document.getElementById('vrInmediataNota');
   if(bloque) bloque.style.display=inmediato?'block':'none';
-  if(nota) nota.style.display=inmediato?'none':'block';
+  if(notaFutura) notaFutura.style.display=inmediato?'none':'block';
+  if(notaInmediata) notaInmediata.style.display=inmediato?'block':'none';
 }
 // Arma y muestra el modal de folio + mensaje de SALIDA a guardias.
 // Compartido entre "Registrar" (uso inmediato) y "Confirmar salida y generar folio"
@@ -7279,8 +7289,8 @@ async function vGuardarReserva(){
   if(!fechaUso||!horaInicio||!horaRegreso){showToast('⚠️ Falta la fecha u horario de uso');return;}
   if(!motivo){showToast('⚠️ Falta el motivo / destino');return;}
   if(horaRegreso<=horaInicio){showToast('⚠️ La hora de regreso debe ser después de la salida');return;}
-  // Bloquear si la fecha u hora ya pasaron
-  const hoyChk=new Date().toISOString().slice(0,10);
+  // Bloquear si la fecha u hora ya pasaron (fecha LOCAL, no UTC — ver cronFechaStr)
+  const hoyChk=cronFechaStr(new Date());
   const ahoraChk=String(new Date().getHours()).padStart(2,'0')+':'+String(new Date().getMinutes()).padStart(2,'0');
   if(fechaUso<hoyChk){showToast('⚠️ La fecha seleccionada ya pasó — corrige la fecha');return;}
   if(fechaUso===hoyChk&&horaInicio<ahoraChk){showToast('⚠️ La hora de salida ('+horaInicio+') ya pasó — son las '+ahoraChk+'. Corrige la hora');return;}
