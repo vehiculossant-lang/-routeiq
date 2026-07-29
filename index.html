@@ -1793,6 +1793,9 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.4;">Edita las placas cuando haya cambio de documentos, y activa "En mantenimiento" para bloquear la unidad en el panel público.</p>
           <div id="adminFlotaEditor"></div>
           <button class="btn btn-primary" style="margin-top:8px;" onclick="vGuardarFlotaCfg()">💾 Guardar placas y mantenimiento</button>
+          <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin:14px 0 6px;">🔓 Vehículos en uso ahora</div>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.4;">Liberación administrativa: usa esto solo si el usuario no puede registrar su propio regreso (emergencia, cambio de turno, etc). Se notifica a guardias que el cierre lo hizo Coordinación.</p>
+          <div id="adminFlotaEnUso"></div>
           <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin:14px 0 6px;">📋 Bitácora de movimientos</div>
           <div id="adminFlotaBitacora"></div>
           <button class="btn-excel" style="margin-top:10px;" onclick="vDownloadCSV()">📊 Exportar bitácora (.csv)</button>
@@ -2230,15 +2233,31 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
       <select class="field-input" id="vrLicencia"><option value="">— Selecciona —</option><option value="Sí">✅ Sí, vigente</option><option value="No">❌ No</option></select>
     </div>
     <div class="two-col">
-      <div class="field-group"><div class="field-label">Fecha de uso *</div><input class="field-input" type="date" id="vrFechaUso"></div>
-      <div class="field-group"><div class="field-label">Hora de salida *</div><input class="field-input" type="time" id="vrHoraInicio"></div>
+      <div class="field-group"><div class="field-label">Fecha de uso *</div><input class="field-input" type="date" id="vrFechaUso" onchange="vActualizarVisibilidadKmGas()"></div>
+      <div class="field-group"><div class="field-label">Hora de salida *</div><input class="field-input" type="time" id="vrHoraInicio" onchange="vActualizarVisibilidadKmGas()"></div>
     </div>
     <div class="field-group"><div class="field-label">Hora estimada de regreso *</div><input class="field-input" type="time" id="vrHoraRegreso"></div>
     <div class="field-group"><div class="field-label">Motivo / Destino *</div><input class="field-input" type="text" id="vrMotivo" placeholder="Ej. Entrega laboratorio Centro"></div>
-    <div class="field-group"><div class="field-label">Kilometraje de salida *</div><input class="field-input" type="text" id="vrKmSalida" placeholder="Ej. 45230 (o N/A si no se ve)" inputmode="numeric"></div>
-    <div class="field-group"><div class="field-label">Nivel de gasolina al salida *</div><div id="vrGasScale"></div></div>
+    <div id="vrFuturaNota" style="display:none;background:var(--blue-pale);border:1px solid rgba(61,156,240,0.3);border-radius:var(--radius-xs);padding:10px 12px;margin-bottom:10px;font-size:11.5px;color:var(--blue);line-height:1.5;">📅 Esta es una reserva a futuro: no se pide kilometraje ni gasolina todavía. El día de uso, presiona "🔑 Iniciar Salida Programada" en la tarjeta del vehículo.</div>
+    <div id="vrKmGasBlock">
+      <div class="field-group"><div class="field-label">Kilometraje de salida *</div><input class="field-input" type="text" id="vrKmSalida" placeholder="Ej. 45230 (o N/A si no se ve)" inputmode="numeric"></div>
+      <div class="field-group"><div class="field-label">Nivel de gasolina al salida *</div><div id="vrGasScale"></div></div>
+    </div>
     <button class="btn btn-primary" onclick="vGuardarReserva()">✅ Registrar</button>
     <button class="btn btn-secondary" onclick="closeModal('vReservaModal')">Cancelar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="vIniciarSalidaModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔑 Iniciar Salida Programada</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;font-family:var(--mono);" id="visVehiculoLabel"></div>
+    <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;">Confirma el kilometraje y la gasolina reales en este momento — esto genera el folio y notifica a guardias.</p>
+    <div class="field-group"><div class="field-label">Kilometraje de salida *</div><input class="field-input" type="text" id="visKmSalida" placeholder="Ej. 45230 (o N/A si no se ve)" inputmode="numeric"></div>
+    <div class="field-group"><div class="field-label">Nivel de gasolina al salida *</div><div id="visGasScale"></div></div>
+    <button class="btn btn-primary" onclick="vConfirmarIniciarSalida()">✅ Confirmar salida y generar folio</button>
+    <button class="btn btn-secondary" onclick="closeModal('vIniciarSalidaModal')">Cancelar</button>
   </div>
 </div>
 
@@ -2828,12 +2847,13 @@ function generateVehFolio(){
 async function vPedirFolioRegreso(movId,placas){
   _vFolioRegresoMovId=movId; _vFolioRegresoPlacas=placas;
   // Verificar primero si el registro tiene folio
+  let folioGuardado='';
   if(window.db&&window.fbFns){
     try{
       const{doc,getDoc}=window.fbFns;
       const snap=await getDoc(doc(window.db,'flotaMovimientos',movId));
       if(snap.exists()){
-        const folioGuardado=(snap.data().folioVeh||'').trim();
+        folioGuardado=(snap.data().folioVeh||'').trim();
         if(!folioGuardado){
           // Registro sin folio (anterior al sistema) — regreso directo sin verificar
           vAbrirRegreso(movId,placas,snap.data());
@@ -2842,9 +2862,10 @@ async function vPedirFolioRegreso(movId,placas){
       }
     }catch(e){}
   }
-  // Tiene folio — mostrar modal de verificación
+  // Tiene folio — se auto-completa para agilizar (ya se sabe cuál es, es
+  // el de esta misma unidad activa); se conserva el paso de confirmar.
   const folioInput=document.getElementById('vFolioRegresoInput');
-  if(folioInput){folioInput.value='';folioInput.style.borderColor='';}
+  if(folioInput){folioInput.value=folioGuardado;folioInput.style.borderColor='';}
   const errEl=document.getElementById('vFolioRegresoErr');
   if(errEl) errEl.style.display='none';
   openModal('vFolioRegresoModal');
@@ -6834,6 +6855,7 @@ async function vGuardarFlotaCfg(){
 }
 let vPinBuf='', vPinIntentos=0, vPinBloqueadoHasta=0;
 let vMovs=[], vDocs={}, vUnsubMovs=null, vReservaPlacas=null, vRegresoId=null;
+let _vIniciarSalidaMovId=null, _vIniciarSalidaPlacas=null;
 
 // ── PIN (6 dígitos) ──
 function vPin(k){
@@ -6975,7 +6997,7 @@ function vRenderPanel(){
       +reservas.map(r=>'<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);padding:3px 0;">'
         +'<span style="font-family:var(--mono);">'+(r.fechaUso===hoy?'Hoy':r.fechaUso)+' '+(r.horaInicio||'')+'–'+(r.horaRegresoEst||'')+' · <strong>'+(r.usuario||'—')+'</strong>'+(r.areaUsuario?' ('+r.areaUsuario+')':'')+'</span>'
         +'<span style="display:flex;gap:4px;flex-shrink:0;">'
-        +(r.fechaUso===hoy&&libre?'<button data-mid="'+r.id+'" onclick="vIniciarUso(this.dataset.mid)" style="font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;cursor:pointer;border:1px solid var(--iq-green);background:var(--iq-green-pale);color:var(--iq-green);">🔑 Iniciar</button>':'')
+        +(r.fechaUso===hoy&&libre?'<button data-mid="'+r.id+'" data-placas="'+v.placas+'" onclick="vAbrirIniciarSalida(this.dataset.mid,this.dataset.placas)" style="font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;cursor:pointer;border:1px solid var(--iq-green);background:var(--iq-green-pale);color:var(--iq-green);">🔑 Iniciar Salida Programada</button>':'')
         +'<button data-mid="'+r.id+'" onclick="vCancelarReserva(this.dataset.mid)" style="font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;cursor:pointer;border:1px solid var(--iq-border2);background:var(--iq-surface2);color:var(--text-muted);">✖</button>'
         +'</span></div>').join('')
       +'</div>';
@@ -7031,6 +7053,25 @@ async function renderAdminFlota(){
       );
     }
     editEl.innerHTML=filas.join('');
+  }
+
+  // Vehículos en uso ahora — liberación administrativa (caso emergencia)
+  const enUsoEl=document.getElementById('adminFlotaEnUso');
+  if(enUsoEl){
+    const activos=vMovs.filter(m=>m.estado==='fuera');
+    enUsoEl.innerHTML=!activos.length
+      ?'<div style="font-size:11.5px;color:var(--text-muted);padding:6px 0;">Ninguna unidad en uso en este momento.</div>'
+      :activos.map(m=>{
+        const fl=FLOTA.find(f=>f.placas===m.placas);
+        const hrs=m.salidaAt?Math.floor((Date.now()-new Date(m.salidaAt).getTime())/3600000):null;
+        return '<div style="background:var(--iq-surface);border:1px solid rgba(255,165,2,0.35);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'
+          +'<div><div style="font-weight:700;font-size:13px;">🚗 '+(fl?fl.nombre:m.placas)+'</div>'
+          +'<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">'+(m.usuario||'—')+(m.areaUsuario?' · '+m.areaUsuario:'')+'</div>'
+          +'<div style="font-size:10.5px;font-family:var(--mono);color:var(--text-muted);margin-top:2px;">Folio: '+(m.folioVeh||'—')+' · Salida: '+vFmtHora(m.salidaAt)+(hrs!==null?' ('+hrs+' hrs)':'')+'</div></div>'
+          +'<button data-mid="'+m.id+'" onclick="vLiberarUnidadAdmin(this.dataset.mid)" style="font-size:11px;font-weight:700;padding:7px 10px;border-radius:7px;cursor:pointer;white-space:nowrap;border:1px solid var(--red);background:var(--red-pale);color:var(--red);flex-shrink:0;">🔓 Liberar (Admin)</button>'
+          +'</div></div>';
+      }).join('');
   }
 
   // Alertas de documentos + alerta permanente de mantenimiento por km (solo coordinación)
@@ -7168,8 +7209,59 @@ function vAbrirReservaDirecta(placas){
     document.getElementById('vrMotivo').value='';
     document.getElementById('vrKmSalida').value='';
     document.getElementById('vrGasScale').innerHTML=gasScaleHTML('vr','');
+    vActualizarVisibilidadKmGas();
     openModal('vReservaModal');
   });
+}
+// ¿La fecha/hora elegidas en el formulario de reserva son "ahora mismo" o una reserva a futuro?
+function vEsReservaInmediata(){
+  const fechaUso=document.getElementById('vrFechaUso')?.value||'';
+  const horaInicio=document.getElementById('vrHoraInicio')?.value||'';
+  const hoy=new Date().toISOString().slice(0,10);
+  const ahora=String(new Date().getHours()).padStart(2,'0')+':'+String(new Date().getMinutes()).padStart(2,'0');
+  return fechaUso===hoy&&horaInicio<=ahora;
+}
+// Reserva a futuro: oculta km/gasolina (se piden hasta "Iniciar Salida Programada")
+function vActualizarVisibilidadKmGas(){
+  const inmediato=vEsReservaInmediata();
+  const bloque=document.getElementById('vrKmGasBlock');
+  const nota=document.getElementById('vrFuturaNota');
+  if(bloque) bloque.style.display=inmediato?'block':'none';
+  if(nota) nota.style.display=inmediato?'none':'block';
+}
+// Arma y muestra el modal de folio + mensaje de SALIDA a guardias.
+// Compartido entre "Registrar" (uso inmediato) y "Confirmar salida y generar folio"
+// (reserva programada que inicia su salida real).
+function vMostrarFolioSalidaModal(datos){
+  const{folioVeh,vehiculoNombre,placas,usuario,areaUsuario,motivo,horaInicio,horaRegreso,kmSalida,gasSalida,gasSalidaMotivo}=datos;
+  const folioEl=document.getElementById('vFolioNum');
+  if(folioEl) folioEl.textContent=folioVeh;
+  const waBtn=document.getElementById('vFolioWaBtn');
+  if(waBtn){
+    const gas=GAS_LABELS[gasSalida]||gasSalida||'—';
+    const msgSalida=`🚗 *SALIDA DE VEHÍCULO — RouteIQ*\n`
+      +`📋 Folio: *${folioVeh}*\n`
+      +`🚘 Vehículo: ${vehiculoNombre||placas} · ${placas}\n`
+      +`👤 Responsable: ${usuario}\n`
+      +`🏥 Área: ${areaUsuario}\n`
+      +`📍 Motivo: ${motivo}\n`
+      +`⏰ Salida: ${horaInicio}${horaRegreso?' · Regreso estimado: '+horaRegreso:''}\n`
+      +`📏 Km salida: ${kmSalida}\n`
+      +`⛽ Gasolina: ${gas}${gasSalidaMotivo?' ('+gasSalidaMotivo+')':''}\n`
+      +`🔐 Solo el titular puede registrar el regreso con su folio.`;
+    const msgPreview=document.getElementById('vFolioMsgPreview');
+    if(msgPreview){
+      msgPreview.style.display='block';
+      msgPreview.textContent=msgSalida;
+    }
+    waBtn.onclick=()=>{
+      if(navigator.clipboard){navigator.clipboard.writeText(msgSalida);}
+      else{const t=document.createElement('textarea');t.value=msgSalida;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);}
+      showToast('📋 Mensaje copiado — pégalo en el grupo de guardias');
+      window.open('https://chat.whatsapp.com/DMmXs1NKOsh1kr6uvjXl4h','_blank');
+    };
+  }
+  openModal('vFolioModal');
 }
 async function vGuardarReserva(){
   const vCheck=FLOTA.find(f=>f.placas===vReservaPlacas);
@@ -7181,20 +7273,11 @@ async function vGuardarReserva(){
   const horaInicio=document.getElementById('vrHoraInicio').value;
   const horaRegreso=document.getElementById('vrHoraRegreso').value;
   const motivo=document.getElementById('vrMotivo').value.trim();
-  const kmSalida=document.getElementById('vrKmSalida').value.trim();
-  const gasSalida=document.getElementById('vrGas').value;
   if(!usuario){showToast('⚠️ Falta el nombre de quien lo usa');return;}
   if(!areaUsuario){showToast('⚠️ Falta el área / departamento');return;}
   if(!licencia){showToast('⚠️ Falta indicar si cuenta con licencia');return;}
   if(!fechaUso||!horaInicio||!horaRegreso){showToast('⚠️ Falta la fecha u horario de uso');return;}
   if(!motivo){showToast('⚠️ Falta el motivo / destino');return;}
-  if(!kmSalida){showToast('⚠️ Falta el kilometraje de salida (puedes poner N/A)');return;}
-  if(!gasSalida){showToast('⚠️ Falta marcar el nivel de gasolina');return;}
-  let gasSalidaMotivo='';
-  if(gasSalida==='no_verificado'){
-    gasSalidaMotivo=(document.getElementById('vrGasMotivo')?.value||'').trim();
-    if(!gasSalidaMotivo){showToast('⚠️ Indica por qué no se pudo verificar la gasolina');return;}
-  }
   if(horaRegreso<=horaInicio){showToast('⚠️ La hora de regreso debe ser después de la salida');return;}
   // Bloquear si la fecha u hora ya pasaron
   const hoyChk=new Date().toISOString().slice(0,10);
@@ -7202,10 +7285,22 @@ async function vGuardarReserva(){
   if(fechaUso<hoyChk){showToast('⚠️ La fecha seleccionada ya pasó — corrige la fecha');return;}
   if(fechaUso===hoyChk&&horaInicio<ahoraChk){showToast('⚠️ La hora de salida ('+horaInicio+') ya pasó — son las '+ahoraChk+'. Corrige la hora');return;}
 
-  // ¿Es uso inmediato (hoy, hora ya en curso) o reserva programada?
-  const hoy=new Date().toISOString().slice(0,10);
-  const ahora=String(new Date().getHours()).padStart(2,'0')+':'+String(new Date().getMinutes()).padStart(2,'0');
-  const inmediato=(fechaUso===hoy&&horaInicio<=ahora);
+  // ¿Es uso inmediato (hoy, hora ya en curso) o reserva a futuro?
+  const inmediato=vEsReservaInmediata();
+
+  // Km/gasolina solo se piden y validan si es uso inmediato — una reserva a
+  // futuro los pide hasta el día real, con "Iniciar Salida Programada".
+  let kmSalida='',gasSalida='',gasSalidaMotivo='';
+  if(inmediato){
+    kmSalida=document.getElementById('vrKmSalida').value.trim();
+    gasSalida=document.getElementById('vrGas').value;
+    if(!kmSalida){showToast('⚠️ Falta el kilometraje de salida (puedes poner N/A)');return;}
+    if(!gasSalida){showToast('⚠️ Falta marcar el nivel de gasolina');return;}
+    if(gasSalida==='no_verificado'){
+      gasSalidaMotivo=(document.getElementById('vrGasMotivo')?.value||'').trim();
+      if(!gasSalidaMotivo){showToast('⚠️ Indica por qué no se pudo verificar la gasolina');return;}
+    }
+  }
 
   if(inmediato&&vMovAbierto(vReservaPlacas)){showToast('⚠️ Este vehículo está en uso ahora — prográmalo para más tarde');return;}
   // Traslape contra reservas del mismo día
@@ -7215,8 +7310,10 @@ async function vGuardarReserva(){
   if(!window.db||!window.fbFns)return;
   const{collection,addDoc,serverTimestamp}=window.fbFns;
   const v=FLOTA.find(f=>f.placas===vReservaPlacas);
-  const folioVeh=generateVehFolio();
-  const docRef=await addDoc(collection(window.db,'flotaMovimientos'),{
+  // El folio de una reserva a futuro se genera hasta el día real de la
+  // salida (Iniciar Salida Programada) — no aquí.
+  const folioVeh=inmediato?generateVehFolio():'';
+  await addDoc(collection(window.db,'flotaMovimientos'),{
     folioVeh,placas:vReservaPlacas,vehiculo:v?v.nombre:'',usuario,areaUsuario,licencia,
     fechaUso,horaInicio,horaRegresoEst:horaRegreso,motivo,
     kmSalida,gasSalida,gasSalidaMotivo,
@@ -7224,45 +7321,49 @@ async function vGuardarReserva(){
     estado:inmediato?'fuera':'reservado',timestamp:serverTimestamp()
   });
   closeModal('vReservaModal');
-  // Mostrar folio
-  const folioEl=document.getElementById('vFolioNum');
-  if(folioEl) folioEl.textContent=folioVeh;
-  // Configurar botón WA guardias
-  const waBtn=document.getElementById('vFolioWaBtn');
-  if(waBtn){
-    const gas=GAS_LABELS[gasSalida]||gasSalida||'—';
-    const msgSalida=`🚗 *SALIDA DE VEHÍCULO — RouteIQ*\n`
-      +`📋 Folio: *${folioVeh}*\n`
-      +`🚘 Vehículo: ${v?v.nombre:vReservaPlacas} · ${vReservaPlacas}\n`
-      +`👤 Responsable: ${usuario}\n`
-      +`🏥 Área: ${areaUsuario}\n`
-      +`📍 Motivo: ${motivo}\n`
-      +`⏰ Salida: ${horaInicio} · Regreso estimado: ${horaRegreso}\n`
-      +`📏 Km salida: ${kmSalida}\n`
-      +`⛽ Gasolina: ${gas}${gasSalidaMotivo?' ('+gasSalidaMotivo+')':''}\n`
-      +`🔐 Solo el titular puede registrar el regreso con su folio.`;
-    // Mostrar mensaje en el modal para que el guardia sepa qué se envía
-    const msgPreview=document.getElementById('vFolioMsgPreview');
-    if(msgPreview){
-      msgPreview.style.display='block';
-      msgPreview.textContent=msgSalida;
-    }
-    waBtn.onclick=()=>{
-      // Copiar al portapapeles
-      if(navigator.clipboard){navigator.clipboard.writeText(msgSalida);}
-      else{const t=document.createElement('textarea');t.value=msgSalida;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);}
-      showToast('📋 Mensaje copiado — pégalo en el grupo de guardias');
-      // Abrir grupo
-      window.open('https://chat.whatsapp.com/DMmXs1NKOsh1kr6uvjXl4h','_blank');
-    };
+
+  if(inmediato){
+    vMostrarFolioSalidaModal({folioVeh,vehiculoNombre:v?v.nombre:'',placas:vReservaPlacas,usuario,areaUsuario,motivo,horaInicio,horaRegreso,kmSalida,gasSalida,gasSalidaMotivo});
+  } else {
+    showToast('📅 Reserva guardada — ya aparece en el cronograma de vehículos');
   }
-  openModal('vFolioModal');
 }
-async function vIniciarUso(movId){
-  if(!window.db||!window.fbFns)return;
-  const{doc,updateDoc}=window.fbFns;
-  await updateDoc(doc(window.db,'flotaMovimientos',movId),{estado:'fuera',salidaAt:new Date().toISOString()});
-  showToast('🔑 Salida registrada');
+// El día de la reserva: pide Km/gasolina reales, genera el folio y notifica a guardias.
+function vAbrirIniciarSalida(movId,placas){
+  const v=FLOTA.find(f=>f.placas===placas);
+  _vIniciarSalidaMovId=movId;
+  _vIniciarSalidaPlacas=placas;
+  document.getElementById('visVehiculoLabel').textContent='🚗 '+(v?v.nombre:'')+' · '+placas;
+  document.getElementById('visKmSalida').value='';
+  document.getElementById('visGasScale').innerHTML=gasScaleHTML('vis','');
+  openModal('vIniciarSalidaModal');
+}
+async function vConfirmarIniciarSalida(){
+  if(!_vIniciarSalidaMovId||!window.db||!window.fbFns)return;
+  const kmSalida=document.getElementById('visKmSalida').value.trim();
+  const gasSalida=document.getElementById('visGas').value;
+  if(!kmSalida){showToast('⚠️ Falta el kilometraje de salida (puedes poner N/A)');return;}
+  if(!gasSalida){showToast('⚠️ Falta marcar el nivel de gasolina');return;}
+  let gasSalidaMotivo='';
+  if(gasSalida==='no_verificado'){
+    gasSalidaMotivo=(document.getElementById('visGasMotivo')?.value||'').trim();
+    if(!gasSalidaMotivo){showToast('⚠️ Indica por qué no se pudo verificar la gasolina');return;}
+  }
+  const{doc,getDoc,updateDoc}=window.fbFns;
+  const snap=await getDoc(doc(window.db,'flotaMovimientos',_vIniciarSalidaMovId));
+  if(!snap.exists()){showToast('⚠️ No se encontró la reserva');return;}
+  const d=snap.data();
+  const folioVeh=generateVehFolio();
+  const salidaAt=new Date().toISOString();
+  await updateDoc(doc(window.db,'flotaMovimientos',_vIniciarSalidaMovId),{
+    folioVeh,kmSalida,gasSalida,gasSalidaMotivo,salidaAt,estado:'fuera'
+  });
+  closeModal('vIniciarSalidaModal');
+  vMostrarFolioSalidaModal({
+    folioVeh,vehiculoNombre:d.vehiculo,placas:d.placas,usuario:d.usuario,areaUsuario:d.areaUsuario,
+    motivo:d.motivo,horaInicio:String(new Date().getHours()).padStart(2,'0')+':'+String(new Date().getMinutes()).padStart(2,'0'),
+    horaRegreso:d.horaRegresoEst,kmSalida,gasSalida,gasSalidaMotivo
+  });
 }
 async function vCancelarReserva(movId){
   if(!window.db||!window.fbFns)return;
@@ -7420,6 +7521,58 @@ async function vGuardarRegreso(){
   }
   closeModal('vRegresoModal');
   showToast('🏁 Regreso registrado — notificando a guardias');
+}
+
+// Liberación administrativa (Coordinación): cierra una unidad "En uso" sin
+// que el usuario original registre su propio regreso — casos de emergencia,
+// cambio de turno, usuario ilocalizable, etc. Notifica a guardias que el
+// cierre lo hizo administración, no el usuario.
+async function vLiberarUnidadAdmin(movId){
+  if(!window.db||!window.fbFns)return;
+  const{doc,getDoc,updateDoc}=window.fbFns;
+  const snap=await getDoc(doc(window.db,'flotaMovimientos',movId));
+  if(!snap.exists()){showToast('⚠️ No se encontró el movimiento');return;}
+  const d=snap.data();
+  const fl=FLOTA.find(f=>f.placas===d.placas);
+  const nombreVeh=fl?fl.nombre:(d.vehiculo||d.placas);
+  const ok=confirm('¿Liberar '+nombreVeh+' ('+d.placas+') de forma administrativa?\n\nUsuario actual: '+(d.usuario||'—')+'\n\nEsto cierra el movimiento SIN verificar km/gasolina con el usuario. Úsalo solo en emergencias.');
+  if(!ok)return;
+  const regresoAt=new Date().toISOString();
+  const adminNombre=(APP.user&&APP.user.name)||'Coordinación';
+  await updateDoc(doc(window.db,'flotaMovimientos',movId),{
+    estado:'regresado',regresoAt,
+    kmRegreso:d.kmRegreso||'N/A',gasRegreso:d.gasRegreso||'no_verificado',
+    gasRegresoMotivo:d.gasRegresoMotivo||'Liberación administrativa — no verificado',
+    cerradoPorAdmin:true,adminQueLibero:adminNombre,
+    observaciones:(d.observaciones?d.observaciones+' · ':'')+'Liberado por administración ('+adminNombre+')'
+  });
+  const horaCierre=new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  const msgLiberacion=`🔓 *LIBERACIÓN ADMINISTRATIVA — RouteIQ*\n`
+    +`📋 Folio: *${d.folioVeh||'Sin folio'}*\n`
+    +`🚘 Vehículo: ${nombreVeh} · ${d.placas}\n`
+    +`👤 Usuario original: ${d.usuario||'—'}\n`
+    +`⏰ Cerrado: ${horaCierre}\n`
+    +`🔐 Cierre realizado por Coordinación (${adminNombre}) — no se verificó km/gasolina con el usuario.\n`
+    +`✅ Unidad liberada y disponible nuevamente.`;
+  if(navigator.clipboard){navigator.clipboard.writeText(msgLiberacion);}
+  else{const t=document.createElement('textarea');t.value=msgLiberacion;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);}
+  const existingModal=document.getElementById('vLiberarWaModal');
+  if(existingModal) existingModal.remove();
+  const modal=document.createElement('div');
+  modal.id='vLiberarWaModal';
+  modal.className='modal-overlay';
+  modal.style.display='flex';
+  modal.innerHTML=`<div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔓 Unidad liberada</div>
+    <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Mensaje copiado al portapapeles. Abre el grupo de guardias y pégalo:</p>
+    <div style="background:rgba(225,29,72,0.05);border:1px solid rgba(225,29,72,0.2);border-radius:var(--radius-xs);padding:10px;font-size:10.5px;color:var(--text-secondary);white-space:pre-line;line-height:1.6;font-family:var(--mono);margin-bottom:12px;">${msgLiberacion}</div>
+    <button onclick="window.open('https://chat.whatsapp.com/DMmXs1NKOsh1kr6uvjXl4h','_blank');" style="width:100%;padding:12px;background:#25D366;color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">📲 Abrir grupo de guardias</button>
+    <button onclick="document.getElementById('vLiberarWaModal').remove();" style="width:100%;padding:10px;background:transparent;color:var(--text-muted);border:0.5px solid var(--iq-border2);border-radius:var(--radius);font-size:12px;cursor:pointer;">Cerrar</button>
+  </div>`;
+  document.body.appendChild(modal);
+  showToast('🔓 Unidad liberada por administración');
+  renderAdminFlota();
 }
 
 // ════════ CRONOGRAMA DE VEHÍCULOS (24h · estilo Google Calendar) ════════
