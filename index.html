@@ -2391,7 +2391,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
     <div class="modal-handle"></div>
     <div style="text-align:center;margin-bottom:16px;">
       <div style="font-size:18px;font-weight:800;color:var(--white);" id="areaPinTitle">Acceso al área</div>
-      <div id="areaPinSub" style="font-size:12px;color:var(--text-muted);margin-top:4px;">Ingresa tu número de empleado para continuar</div>
+      <div id="areaPinSub" style="font-size:12px;color:var(--text-muted);margin-top:4px;">Ingresa el PIN de acceso asignado a tu área.</div>
     </div>
     <!-- PIN dots -->
     <div style="display:flex;gap:14px;justify-content:center;margin-bottom:20px;" id="areaPinDots">
@@ -6010,7 +6010,7 @@ function solicitarAreaPin(areaId){
   if(subEl){
     subEl.textContent = sinConfig
       ? 'Esta área aún no tiene acceso configurado. Contacta a coordinación.'
-      : 'Ingresa tu número de empleado para continuar';
+      : 'Ingresa el PIN de acceso asignado a tu área.';
   }
   openModal('areaPinModal');
 }
