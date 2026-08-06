@@ -524,24 +524,11 @@ textarea.field-input{resize:vertical;min-height:72px;}
 .agenda-up:active{background:var(--iq-green-pale);color:var(--iq-green);}
 .agenda-empty{text-align:center;padding:14px;color:var(--text-muted);font-size:12px;background:var(--iq-surface);border:1px dashed var(--iq-border2);border-radius:var(--radius-sm);}
 
-/* ── TIMER / CUENTA REGRESIVA ── */
-.timer-wrap{background:var(--iq-surface2);border:1px solid var(--iq-border);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
-.timer-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.timer-title{font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;}
-.timer-display{text-align:center;padding:12px 0;}
-.timer-countdown{font-size:40px;font-weight:800;font-family:var(--mono);letter-spacing:-2px;line-height:1;}
-.timer-countdown.green{color:var(--iq-green);}
-.timer-countdown.amber{color:var(--amber);}
-.timer-countdown.red{color:var(--red);animation:timerPulse 1s infinite;}
-@keyframes timerPulse{0%,100%{opacity:1}50%{opacity:0.5}}
-.timer-label{font-size:11px;color:var(--text-muted);margin-top:4px;}
-.timer-bar{height:4px;background:var(--iq-border);border-radius:2px;overflow:hidden;margin-bottom:12px;}
-.timer-bar-fill{height:100%;border-radius:2px;transition:width 1s linear,background 0.5s;}
+/* ── SELECTOR DE MODO (fecha/tipo de viaje) ── */
 .timer-options{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
 .timer-opt{padding:8px 4px;border-radius:var(--radius-sm);border:1px solid var(--iq-border2);background:var(--iq-surface);font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;text-align:center;color:var(--text-secondary);transition:all 0.12s;}
 .timer-opt:active{background:var(--iq-green-pale);border-color:var(--iq-green);color:var(--iq-green);}
 .timer-opt.active{background:var(--iq-green-pale);border-color:var(--iq-green);color:var(--iq-green);}
-.timer-stop{width:100%;padding:9px;margin-top:8px;border-radius:var(--radius-sm);border:1px solid rgba(255,71,87,0.3);background:var(--red-pale);color:var(--red);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;}
 
 /* ── RATING / CALIFICACIÓN ── */
 .rating-banner{background:linear-gradient(135deg,rgba(0,200,150,0.08),rgba(0,200,150,0.03));border:1px solid rgba(0,200,150,0.2);border-radius:var(--radius);padding:16px;margin-bottom:12px;position:relative;overflow:hidden;}
@@ -1035,6 +1022,8 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
             </div>
             <!-- CONFLICT ALERT -->
             <div id="conflictoAlert" style="display:none;background:var(--amber-pale);border:1px solid rgba(255,165,2,0.3);border-radius:var(--radius-xs);padding:10px 12px;margin-bottom:8px;font-size:12px;color:var(--amber);"></div>
+            <!-- BLOQUEO DE AGENDA ALERT -->
+            <div id="bloqueoAlert" style="display:none;background:var(--iq-green-pale);border:1px solid rgba(0,200,150,0.3);border-radius:var(--radius-xs);padding:10px 12px;margin-bottom:8px;font-size:12px;color:var(--iq-green);"></div>
             <div class="field-group">
               <div class="field-label">Destino</div>
               <input class="field-input" type="text" id="fDestino" placeholder="Lugar de entrega">
@@ -1397,7 +1386,10 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           </div>
         </div>
         <div class="status-sw">
-          <div class="section-label">Mi estatus</div>
+          <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <span>Mi estatus</span>
+            <span id="bqEstatusBadge" style="display:none;background:var(--iq-green-pale);color:var(--iq-green);font-size:10px;font-weight:700;font-family:var(--mono);padding:3px 10px;border-radius:20px;border:1px solid rgba(0,200,150,0.3);white-space:nowrap;"></span>
+          </div>
           <div class="status-grid">
             <button class="status-btn a-disponible" id="sb-disponible" onclick="setMStatus('disponible',this)">🟢<span>Disponible</span></button>
             <button class="status-btn" id="sb-ruta" onclick="setMStatus('ruta',this)">🔵<span>En vuelta</span></button>
@@ -1406,27 +1398,40 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
             <button class="status-btn" id="sb-libre" onclick="setMStatus('libre',this)">⛔<span>No disponible</span></button>
           </div>
         </div>
-        <!-- TIMER -->
-        <div class="timer-wrap" id="timerWrap">
-          <div class="timer-header">
-            <span class="timer-title">⏱ Tiempo estimado de vuelta</span>
-            <span id="timerStatus" style="font-size:10px;color:var(--text-muted);font-family:var(--mono);">Sin vuelta activa</span>
+
+        <!-- PROGRAMAR / APARTAR MI TIEMPO -->
+        <div class="section-label" style="margin-top:14px;">📌 Programar / Apartar mi tiempo</div>
+        <div class="form-card">
+          <div style="background:var(--iq-green-pale);border:1px solid rgba(0,200,150,0.25);border-radius:var(--radius-xs);padding:10px 12px;margin-bottom:12px;font-size:11.5px;color:var(--iq-green);line-height:1.5;">
+            📌 Aparta tu tiempo para vueltas con retorno, bancos o trámites privados. Las demás áreas verán tu horario bloqueado en verde.
           </div>
-          <div class="timer-display" id="timerDisplay" style="display:none;">
-            <div class="timer-countdown green" id="timerCountdown">00:00</div>
-            <div class="timer-label" id="timerLabelText">minutos restantes</div>
+          <div class="field-group">
+            <div class="field-label">Área</div>
+            <input class="field-input" type="text" id="bqArea" placeholder="Ej: Banco / Trámite personal">
           </div>
-          <div class="timer-bar" id="timerBarWrap" style="display:none;"><div class="timer-bar-fill" id="timerBarFill" style="width:100%;background:var(--iq-green);"></div></div>
-          <div class="timer-options" id="timerOptions">
-            <div class="timer-opt" onclick="startTimer(20)">20 min</div>
-            <div class="timer-opt" onclick="startTimer(30)">30 min</div>
-            <div class="timer-opt" onclick="startTimer(40)">40 min</div>
-            <div class="timer-opt" onclick="startTimer(60)">1 hora</div>
-            <div class="timer-opt" onclick="startTimer(90)">1.5 hrs</div>
-            <div class="timer-opt" onclick="startTimer(120)">2 horas</div>
+          <div class="field-group">
+            <div class="field-label">Solicitante</div>
+            <input class="field-input" type="text" id="bqSolicitante" placeholder="Nombre (opcional)">
           </div>
-          <button class="timer-stop" id="timerStopBtn" style="display:none;" onclick="stopTimer()">✓ Terminé antes — Marcar disponible</button>
+          <div class="field-group">
+            <div class="field-label">Concepto <span class="req">*</span></div>
+            <input class="field-input" type="text" id="bqConcepto" placeholder="Ej: Depósito en banco, trámite personal...">
+          </div>
+          <div class="two-col">
+            <div class="field-group">
+              <div class="field-label">Hora inicio</div>
+              <input class="field-input" type="time" id="bqHoraInicio">
+            </div>
+            <div class="field-group">
+              <div class="field-label">Hora fin</div>
+              <input class="field-input" type="time" id="bqHoraFin">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="apartarHorario()">🗓️ Apartar mi horario en cronograma</button>
         </div>
+
+        <div class="section-label" style="margin-top:4px;">Mis horarios apartados hoy</div>
+        <div id="mBloqueosList"></div>
 
         <div class="stats-row">
           <div class="stat-card"><div class="stat-num" id="mStatTotal">0</div><div class="stat-label">Vueltas hoy</div></div>
@@ -2524,7 +2529,7 @@ let APP={
   cfgPins:{diana:'9999',ruben:'9999',ivan:'1234',moises:'1234',pedro:'1234',hugo:'1234',victor:'1234'},
   cfgWa:{HES:'',MMS:'',Tram:''},cfgEmpresa:'',
   unsubSolicitudes:null,unsubEstatus:null,unsubAgendas:null,
-  timerInterval:null,timerEnd:null,timerTotal:null,
+  bloqueosAgenda:[],
   selectedRating:null,lastFolio:null,
 };
 
@@ -2542,6 +2547,7 @@ document.addEventListener('firebaseReady',()=>{
     listenEstatus();
     listenAgendas();
     listenEventos();
+    listenBloqueosAgenda();
   }, 500);
 });
 setTimeout(()=>{
@@ -2565,6 +2571,7 @@ setInterval(()=>{
   const el=document.getElementById('hClock');
   if(el)el.textContent=new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   updateShiftUI();
+  updateBloqueoEstatusUI();
 },1000);
 
 // ── SHIFT LOGIC ──
@@ -2649,7 +2656,6 @@ function goTab(tab){
 function logout(){
   if(APP.unsubSolicitudes)APP.unsubSolicitudes();
   if(APP.unsubEstatus)APP.unsubEstatus();
-  if(APP.timerInterval)clearInterval(APP.timerInterval);
   APP.user=null;APP.role=null;
   document.getElementById('hBadge').style.display='none';
   document.getElementById('hLogout').style.display='none';
@@ -3112,73 +3118,6 @@ function setMStatusDirect(st){
   }
 }
 
-// ── TIMER ──
-function startTimer(mins){
-  if(APP.timerInterval)clearInterval(APP.timerInterval);
-  APP.timerEnd=Date.now()+(mins*60*1000);
-  APP.timerTotal=mins*60*1000;
-  document.querySelectorAll('.timer-opt').forEach(o=>o.classList.remove('active'));
-  document.querySelectorAll('.timer-opt').forEach(o=>{if(o.textContent.includes(mins+'min')||o.textContent.includes(mins+' min')||o.textContent.includes((mins/60)+' hr')||(mins===60&&o.textContent.includes('1 hora'))||(mins===90&&o.textContent.includes('1.5'))||(mins===120&&o.textContent.includes('2 hora')))o.classList.add('active');});
-  document.getElementById('timerDisplay').style.display='block';
-  document.getElementById('timerBarWrap').style.display='block';
-  document.getElementById('timerOptions').style.display='none';
-  document.getElementById('timerStopBtn').style.display='block';
-  document.getElementById('timerStatus').textContent=`Iniciado · ${mins} min`;
-  setMStatusDirect('ocupado');
-  // Save timer to Firebase
-  if(window.db&&window.fbFns&&APP.user){
-    const{doc,setDoc}=window.fbFns;
-    setDoc(doc(window.db,'timers',APP.user.id),{endAt:APP.timerEnd,totalMs:APP.timerTotal,mins,startAt:Date.now(),nombre:APP.user.name});
-  }
-  APP.timerInterval=setInterval(()=>{
-    const remaining=APP.timerEnd-Date.now();
-    if(remaining<=0){
-      clearInterval(APP.timerInterval);
-      document.getElementById('timerCountdown').textContent='00:00';
-      document.getElementById('timerCountdown').className='timer-countdown red';
-      document.getElementById('timerStatus').textContent='Tiempo vencido';
-      document.getElementById('timerStopBtn').textContent='✓ Marcar como disponible';
-      setMStatusDirect('disponible');
-      showToast('⏱ Tiempo de vuelta vencido — marcado disponible');
-      // Clear timer from Firebase
-      if(window.db&&window.fbFns&&APP.user){
-        const{doc,setDoc}=window.fbFns;
-        setDoc(doc(window.db,'timers',APP.user.id),{endAt:null});
-      }
-      return;
-    }
-    const pct=remaining/APP.timerTotal*100;
-    const m=Math.floor(remaining/60000);
-    const s=Math.floor((remaining%60000)/1000);
-    const cd=document.getElementById('timerCountdown');
-    cd.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-    cd.className='timer-countdown '+(pct>50?'green':pct>20?'amber':'red');
-    const bar=document.getElementById('timerBarFill');
-    bar.style.width=pct+'%';
-    bar.style.background=pct>50?'var(--iq-green)':pct>20?'var(--amber)':'var(--red)';
-    // Update timer in firebase every minute
-    if(s===0&&window.db&&window.fbFns&&APP.user){
-      APP.timers[APP.user.id]=m;
-    }
-  },1000);
-}
-function stopTimer(){
-  if(APP.timerInterval)clearInterval(APP.timerInterval);
-  document.getElementById('timerDisplay').style.display='none';
-  document.getElementById('timerBarWrap').style.display='none';
-  document.getElementById('timerOptions').style.display='grid';
-  document.getElementById('timerStopBtn').style.display='none';
-  document.getElementById('timerStatus').textContent='Sin vuelta activa';
-  document.getElementById('timerCountdown').className='timer-countdown green';
-  document.querySelectorAll('.timer-opt').forEach(o=>o.classList.remove('active'));
-  setMStatusDirect('disponible');
-  if(window.db&&window.fbFns&&APP.user){
-    const{doc,setDoc}=window.fbFns;
-    setDoc(doc(window.db,'timers',APP.user.id),{endAt:null});
-  }
-  showToast('🟢 Marcado como disponible');
-}
-
 // ── FIREBASE LISTENERS ──
 function listenEstatus(){
   if(!window.db||!window.fbFns)return;
@@ -3218,6 +3157,106 @@ function listenAgendas(){
     });
     renderMensajeroListArea();
   });
+}
+
+// ── BLOQUEOS DE AGENDA — "Programar / apartar mi tiempo" ──
+function listenBloqueosAgenda(){
+  if(!window.db||!window.fbFns)return;
+  const{collection,onSnapshot}=window.fbFns;
+  onSnapshot(collection(window.db,'bloqueos_agenda'),snap=>{
+    APP.bloqueosAgenda=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(APP.role==='mensajero'&&APP.user)renderMisBloqueos();
+    updateBloqueoEstatusUI();
+    checkConflictos();
+    const pantalla=document.getElementById('screen-cronograma-info');
+    if(pantalla&&pantalla.classList.contains('active'))cronRenderInfo();
+  });
+}
+
+function apartarHorario(){
+  if(!APP.user){showToast('⚠️ Sesión no válida');return;}
+  const area=(document.getElementById('bqArea')||{}).value?.trim()||'';
+  const solicitante=(document.getElementById('bqSolicitante')||{}).value?.trim()||'';
+  const concepto=(document.getElementById('bqConcepto')||{}).value?.trim()||'';
+  const horaInicio=(document.getElementById('bqHoraInicio')||{}).value||'';
+  const horaFin=(document.getElementById('bqHoraFin')||{}).value||'';
+  if(!concepto){showToast('⚠️ Indica el concepto del bloqueo');return;}
+  if(!horaInicio||!horaFin){showToast('⚠️ Indica hora inicio y hora fin');return;}
+  if(horaFin<=horaInicio){showToast('⚠️ La hora fin debe ser posterior a la hora inicio');return;}
+  if(!window.db||!window.fbFns){showToast('⚠️ Sin conexión Firebase');return;}
+  const{collection,addDoc,serverTimestamp}=window.fbFns;
+  addDoc(collection(window.db,'bloqueos_agenda'),{
+    idMensajero:APP.user.id,
+    nombreMensajero:APP.user.name,
+    area, solicitante, concepto, horaInicio, horaFin,
+    estado:'activo',
+    fecha:cronFechaStr(new Date()),
+    createdAt:serverTimestamp()
+  }).then(()=>{
+    ['bqArea','bqSolicitante','bqConcepto','bqHoraInicio','bqHoraFin'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.value='';
+    });
+    showToast('🗓️ Horario apartado en el cronograma');
+  }).catch(e=>{console.warn('apartarHorario:',e);showToast('⚠️ No se pudo guardar el bloqueo');});
+}
+
+function renderMisBloqueos(){
+  if(!APP.user)return;
+  const cont=document.getElementById('mBloqueosList');
+  if(!cont)return;
+  const hoy=cronFechaStr(new Date());
+  const mios=(APP.bloqueosAgenda||[]).filter(b=>
+    b.idMensajero===APP.user.id && b.fecha===hoy && b.estado==='activo'
+  ).sort((a,b)=>(a.horaInicio||'').localeCompare(b.horaInicio||''));
+  if(!mios.length){cont.innerHTML='<div class="empty-state"><div class="ei">📭</div><p>Sin horarios apartados hoy</p></div>';return;}
+  cont.innerHTML=mios.map(b=>`
+    <div class="form-card" style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary);">🕐 ${b.horaInicio} – ${b.horaFin} hrs</div>
+          <div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">${b.concepto}</div>
+          <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">${b.area||'—'}${b.solicitante?' · '+b.solicitante:''}</div>
+        </div>
+      </div>
+      <button class="btn" style="margin-top:10px;background:var(--iq-green-pale);color:var(--iq-green);border:1px solid rgba(0,200,150,0.3);width:100%;" onclick="liberarBloqueo('${b.id}')">🟢 Liberar horario / Terminé antes</button>
+    </div>`).join('');
+}
+
+function liberarBloqueo(id){
+  if(!window.db||!window.fbFns)return;
+  const{doc,deleteDoc}=window.fbFns;
+  deleteDoc(doc(window.db,'bloqueos_agenda',id)).then(()=>{
+    showToast('🟢 Horario liberado — disponibilidad restablecida');
+  }).catch(e=>{console.warn('liberarBloqueo:',e);showToast('⚠️ No se pudo liberar el bloqueo');});
+}
+
+// Bloqueo activo del mensajero en turno, según la hora actual del sistema
+function getBloqueoActivo(mensajeroId){
+  const hoy=cronFechaStr(new Date());
+  const ahora=new Date();
+  const minsAhora=ahora.getHours()*60+ahora.getMinutes();
+  return (APP.bloqueosAgenda||[]).find(b=>{
+    if(b.idMensajero!==mensajeroId||b.estado!=='activo'||b.fecha!==hoy)return false;
+    const ini=cronMinutosDeHoraStr(b.horaInicio||'');
+    const fin=cronMinutosDeHoraStr(b.horaFin||'');
+    if(ini===null||fin===null)return false;
+    return minsAhora>=ini&&minsAhora<=fin;
+  })||null;
+}
+
+// Refleja en el panel del mensajero si hay un bloqueo activo ahora mismo
+function updateBloqueoEstatusUI(){
+  if(APP.role!=='mensajero'||!APP.user)return;
+  const badge=document.getElementById('bqEstatusBadge');
+  if(!badge)return;
+  const activo=getBloqueoActivo(APP.user.id);
+  if(activo){
+    badge.style.display='inline-block';
+    badge.textContent='🔒 Ocupado - '+activo.concepto;
+  } else {
+    badge.style.display='none';
+    badge.textContent='';
+  }
 }
 
 function listenSolicitudes(){
@@ -3670,6 +3709,7 @@ function aLoginOk(){
   listenEstatus();
   listenAgendas();
   listenEventos();
+  listenBloqueosAgenda();
   goTab('dash');
   setTimeout(loadAdminTE,2000);
   checkAutoArchive();
@@ -4565,6 +4605,29 @@ function checkConflictos(){
   } else {
     alertDiv.style.display = 'none';
   }
+
+  // Check active bloqueos_agenda for that date/hora
+  const bloqueoDiv = document.getElementById('bloqueoAlert');
+  if(bloqueoDiv){
+    const bloqueos = (APP.bloqueosAgenda||[]).filter(b => {
+      if(b.estado !== 'activo' || b.fecha !== fecha) return false;
+      const ini = cronMinutosDeHoraStr(b.horaInicio||'');
+      const fin = cronMinutosDeHoraStr(b.horaFin||'');
+      if(ini === null || fin === null) return false;
+      return horaNum >= ini && horaNum <= fin;
+    });
+    if(bloqueos.length > 0){
+      bloqueoDiv.style.display = 'block';
+      bloqueoDiv.innerHTML = bloqueos.map(b =>
+        '🟢 <strong>Horario reservado por mensajero:</strong><br>'
+        + '• ' + b.nombreMensajero + ' está ocupado de ' + b.horaInicio + ' a ' + b.horaFin
+        + ' hrs (' + (b.area||'—') + ' - ' + b.concepto + ').'
+        + '<br><span style="font-size:10px;opacity:0.7;">Puedes continuar seleccionando otro mensajero</span>'
+      ).join('<hr style="border:none;border-top:1px solid rgba(0,200,150,0.2);margin:6px 0;">');
+    } else {
+      bloqueoDiv.style.display = 'none';
+    }
+  }
   }catch(e){console.warn('checkConflictos:',e);}
 }
 
@@ -4853,6 +4916,7 @@ async function mLoginOk(){
   listenEstatus();
   listenAgendas();
   listenEventos();
+  listenBloqueosAgenda();
   updateShiftUI();
   // ¿Ya hizo el checkin de este turno? Si sí, entra directo sin volver a preguntar.
   const turnoKey = getTurnoKey(m.id);
@@ -6367,6 +6431,34 @@ function cronRenderGantt(theadId, bodyId, weekLabelId){
         }
 
         tbHTML += '<div class="'+cls+'" style="background:'+m.color+';'+geo+'" data-bid="'+(s.id||s.folio||'')+'">'+inner+'</div>';
+      });
+
+      // Bloqueos de agenda (apartados por el mensajero) de este día y hora
+      const bloqueosEnCelda = (APP.bloqueosAgenda||[]).filter(b => {
+        if(b.estado !== 'activo') return false;
+        if(b.fecha !== dStr) return false;
+        const mins = cronMinutosDeHoraStr(b.horaInicio||'');
+        return mins !== null && Math.floor(mins/60) === h;
+      });
+
+      bloqueosEnCelda.forEach(b => {
+        const mid = normId(b.idMensajero||b.nombreMensajero||'');
+        const m = CRON_MENSAJEROS.find(x=>x.id===mid);
+        if(!m) return;
+
+        const bIniMin = cronMinutosDeHoraStr(b.horaInicio||'') || 0;
+        const bFinMin = cronMinutosDeHoraStr(b.horaFin||'') || (bIniMin+60);
+        const durMin = Math.max(15, bFinMin - bIniMin);
+        const minOffset = bIniMin % 60;
+        const topPx = Math.round(minOffset/60*64) + 2;
+        const hPx = Math.max(14, Math.round(durMin/60*64) - 4);
+        const label = m.nombre+' — '+(b.area||'—')+' ('+b.concepto+')';
+
+        const geo = 'top:'+topPx+'px;bottom:auto;height:'+hPx+'px;z-index:2;';
+        const inner = '<span class="cron-block-hora">🔒 '+(b.horaInicio||'')+'–'+(b.horaFin||'')+'</span>'
+          +'<span class="cron-block-area">'+label+'</span>';
+
+        tbHTML += '<div class="cron-block" style="background:'+m.color+';border:1.5px dashed rgba(255,255,255,0.7);'+geo+'" title="'+label.replace(/"/g,'&quot;')+'">'+inner+'</div>';
       });
 
       tbHTML += '</td>';
