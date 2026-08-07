@@ -664,6 +664,14 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
 .cron-block-solicita{font-size:10px;color:rgba(255,255,255,0.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .cron-block-prio{font-size:10px;color:rgba(255,255,255,0.85);}
 .cron-block-dur{font-size:10px;color:rgba(255,255,255,0.7);}
+.cron-block-bloqueo{
+  background-image:repeating-linear-gradient(135deg,rgba(0,0,0,0.32) 0 6px,rgba(0,0,0,0.14) 6px 12px);
+  box-shadow:inset 0 0 0 1000px rgba(0,0,0,0.22);
+  border:2px dashed rgba(255,255,255,0.9)!important;
+  cursor:pointer;
+}
+.cron-block-bloqueo .cron-block-hora{color:#fff;font-weight:800;letter-spacing:0.2px;}
+.cron-block-bloqueo .cron-block-area{font-weight:700;}
 
 /* Nav semanal */
 .cron-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
@@ -1417,6 +1425,10 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
             <div class="field-label">Concepto <span class="req">*</span></div>
             <input class="field-input" type="text" id="bqConcepto" placeholder="Ej: Depósito en banco, trámite personal...">
           </div>
+          <div class="field-group">
+            <div class="field-label">Fecha</div>
+            <input class="field-input" type="date" id="bqFecha">
+          </div>
           <div class="two-col">
             <div class="field-group">
               <div class="field-label">Hora inicio</div>
@@ -1430,7 +1442,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           <button class="btn btn-primary" onclick="apartarHorario()">🗓️ Apartar mi horario en cronograma</button>
         </div>
 
-        <div class="section-label" style="margin-top:4px;">Mis horarios apartados hoy</div>
+        <div class="section-label" style="margin-top:4px;">Mis horarios apartados</div>
         <div id="mBloqueosList"></div>
 
         <div class="stats-row">
@@ -2153,7 +2165,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
 <div class="modal-overlay" id="cronDetalleModal">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <div class="modal-title">📋 Detalle de la vuelta</div>
+    <div class="modal-title" id="cronDetalleTitle">📋 Detalle de la vuelta</div>
     <div id="cronDetalleBody"></div>
     <button class="btn btn-secondary" onclick="closeModal('cronDetalleModal')">Cerrar</button>
   </div>
@@ -3178,11 +3190,14 @@ function apartarHorario(){
   const area=(document.getElementById('bqArea')||{}).value?.trim()||'';
   const solicitante=(document.getElementById('bqSolicitante')||{}).value?.trim()||'';
   const concepto=(document.getElementById('bqConcepto')||{}).value?.trim()||'';
+  const fecha=(document.getElementById('bqFecha')||{}).value||cronFechaStr(new Date());
   const horaInicio=(document.getElementById('bqHoraInicio')||{}).value||'';
   const horaFin=(document.getElementById('bqHoraFin')||{}).value||'';
+  const hoy=cronFechaStr(new Date());
   if(!concepto){showToast('⚠️ Indica el concepto del bloqueo');return;}
   if(!horaInicio||!horaFin){showToast('⚠️ Indica hora inicio y hora fin');return;}
   if(horaFin<=horaInicio){showToast('⚠️ La hora fin debe ser posterior a la hora inicio');return;}
+  if(fecha<hoy){showToast('⚠️ La fecha no puede ser anterior a hoy');return;}
   if(!window.db||!window.fbFns){showToast('⚠️ Sin conexión Firebase');return;}
   const{collection,addDoc,serverTimestamp}=window.fbFns;
   addDoc(collection(window.db,'bloqueos_agenda'),{
@@ -3190,14 +3205,25 @@ function apartarHorario(){
     nombreMensajero:APP.user.name,
     area, solicitante, concepto, horaInicio, horaFin,
     estado:'activo',
-    fecha:cronFechaStr(new Date()),
+    fecha,
     createdAt:serverTimestamp()
   }).then(()=>{
     ['bqArea','bqSolicitante','bqConcepto','bqHoraInicio','bqHoraFin'].forEach(id=>{
       const el=document.getElementById(id);if(el)el.value='';
     });
+    const fechaEl=document.getElementById('bqFecha');if(fechaEl)fechaEl.value=hoy;
     showToast('🗓️ Horario apartado en el cronograma');
   }).catch(e=>{console.warn('apartarHorario:',e);showToast('⚠️ No se pudo guardar el bloqueo');});
+}
+
+function formatFechaCorta(fechaStr){
+  const hoy=cronFechaStr(new Date());
+  const manana=(()=>{const d=new Date();d.setDate(d.getDate()+1);return cronFechaStr(d);})();
+  if(fechaStr===hoy)return'Hoy';
+  if(fechaStr===manana)return'Mañana';
+  const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const[y,m,d]=fechaStr.split('-').map(Number);
+  return d+' '+meses[m-1];
 }
 
 function renderMisBloqueos(){
@@ -3206,14 +3232,14 @@ function renderMisBloqueos(){
   if(!cont)return;
   const hoy=cronFechaStr(new Date());
   const mios=(APP.bloqueosAgenda||[]).filter(b=>
-    b.idMensajero===APP.user.id && b.fecha===hoy && b.estado==='activo'
-  ).sort((a,b)=>(a.horaInicio||'').localeCompare(b.horaInicio||''));
-  if(!mios.length){cont.innerHTML='<div class="empty-state"><div class="ei">📭</div><p>Sin horarios apartados hoy</p></div>';return;}
+    b.idMensajero===APP.user.id && b.fecha>=hoy && b.estado==='activo'
+  ).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')||(a.horaInicio||'').localeCompare(b.horaInicio||''));
+  if(!mios.length){cont.innerHTML='<div class="empty-state"><div class="ei">📭</div><p>Sin horarios apartados</p></div>';return;}
   cont.innerHTML=mios.map(b=>`
     <div class="form-card" style="margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
         <div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-primary);">🕐 ${b.horaInicio} – ${b.horaFin} hrs</div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary);">📅 ${formatFechaCorta(b.fecha)} · 🕐 ${b.horaInicio} – ${b.horaFin} hrs</div>
           <div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">${b.concepto}</div>
           <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">${b.area||'—'}${b.solicitante?' · '+b.solicitante:''}</div>
         </div>
@@ -4918,6 +4944,8 @@ async function mLoginOk(){
   listenEventos();
   listenBloqueosAgenda();
   updateShiftUI();
+  const bqFechaEl = document.getElementById('bqFecha');
+  if(bqFechaEl && !bqFechaEl.value) bqFechaEl.value = cronFechaStr(new Date());
   // ¿Ya hizo el checkin de este turno? Si sí, entra directo sin volver a preguntar.
   const turnoKey = getTurnoKey(m.id);
   let yaHizoCheckin = false;
@@ -6385,10 +6413,11 @@ function cronRenderGantt(theadId, bodyId, weekLabelId){
         const mid = normId(s.mensajeroId||s.mensajeroNombre||'');
         const m = CRON_MENSAJEROS.find(x=>x.id===mid);
         if(!m) return;
-        const off = m.turnoFin<=24
-          ? (h<m.turnoIni||h>=m.turnoFin)
-          : (h>=(m.turnoFin-24)&&h<m.turnoIni);
-        if(off) return;
+        // NOTA: antes se ocultaba el bloque si la hora caía fuera del turno
+        // nominal del mensajero (m.turnoIni/turnoFin). Eso escondía
+        // solicitudes reales ya asignadas (ej. 6:30am, fuera de cualquier
+        // turno nominal) — si la solicitud existe y está asignada, debe
+        // pintarse siempre, sin importar el turno "de catálogo".
 
         const area = (s.area||'—').slice(0,14);
         const solicita = s.solicitante
@@ -6455,10 +6484,10 @@ function cronRenderGantt(theadId, bodyId, weekLabelId){
         const label = m.nombre+' — '+(b.area||'—')+' ('+b.concepto+')';
 
         const geo = 'top:'+topPx+'px;bottom:auto;height:'+hPx+'px;z-index:2;';
-        const inner = '<span class="cron-block-hora">🔒 '+(b.horaInicio||'')+'–'+(b.horaFin||'')+'</span>'
+        const inner = '<span class="cron-block-hora">🔒 BLOQUEADO · '+(b.horaInicio||'')+'–'+(b.horaFin||'')+'</span>'
           +'<span class="cron-block-area">'+label+'</span>';
 
-        tbHTML += '<div class="cron-block" style="background:'+m.color+';border:1.5px dashed rgba(255,255,255,0.7);'+geo+'" title="'+label.replace(/"/g,'&quot;')+'">'+inner+'</div>';
+        tbHTML += '<div class="cron-block cron-block-bloqueo" style="background-color:'+m.color+';'+geo+'" data-bqid="'+b.id+'" title="'+label.replace(/"/g,'&quot;')+'">'+inner+'</div>';
       });
 
       tbHTML += '</td>';
@@ -6473,6 +6502,10 @@ function cronRenderGantt(theadId, bodyId, weekLabelId){
     el.addEventListener('mouseenter', function(e){ cronShowTooltipSol(e, this.getAttribute('data-bid')); });
     el.addEventListener('mouseleave', cronHideTooltip);
     el.addEventListener('click', function(){ cronOpenDetalle(this.getAttribute('data-bid')); });
+  });
+  tbody.querySelectorAll('.cron-block[data-bqid]').forEach(el => {
+    el.style.cursor='pointer';
+    el.addEventListener('click', function(){ cronOpenBloqueoDetalle(this.getAttribute('data-bqid')); });
   });
 
   // Auto-scroll a hora actual si es semana actual
@@ -6770,6 +6803,8 @@ function cronOpenDetalle(bid){
   const statusLabels = {pendiente:'⏳ Pendiente', en_proceso:'🛵 En proceso', completada:'✅ Finalizada'};
   const resultadoLabels = {completada:'✅ Completada', sin_paquete:'❌ Sin paquete / no listo', cerrado:'🔒 Lugar cerrado', reprogramada:'⏳ Reprogramada', otro:'📝 Otro'};
   const row = (label,val)=>val?'<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--iq-border);font-size:13px;"><span style="color:var(--text-muted);">'+label+'</span><span style="font-weight:600;text-align:right;">'+val+'</span></div>':'';
+  const titleEl = document.getElementById('cronDetalleTitle');
+  if(titleEl) titleEl.textContent = '📋 Detalle de la vuelta';
   document.getElementById('cronDetalleBody').innerHTML =
     row('Folio', s.folio||s.id||'—')
     +row('Estatus', statusLabels[s.status]||s.status||'—')
@@ -6787,6 +6822,24 @@ function cronOpenDetalle(bid){
     +row('Nota del mensajero', s.resultadoNota)
     +row('Observaciones', s.observaciones||s.descripcion)
     +(s.transporte?'<div style="padding:8px 0;font-size:13px;">'+transporteDetalleHTML(s.transporte)+'</div>':'')
+    +'<div style="height:10px;"></div>';
+  openModal('cronDetalleModal');
+}
+
+// ── Detalle de un bloqueo de agenda (click en cronograma) ──
+function cronOpenBloqueoDetalle(bqid){
+  const b = (APP.bloqueosAgenda||[]).find(x => x.id === bqid);
+  if(!b) return;
+  cronHideTooltip();
+  const row = (label,val)=>val?'<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--iq-border);font-size:13px;"><span style="color:var(--text-muted);">'+label+'</span><span style="font-weight:600;text-align:right;">'+val+'</span></div>':'';
+  const titleEl = document.getElementById('cronDetalleTitle');
+  if(titleEl) titleEl.textContent = '🔒 Detalle del bloqueo';
+  document.getElementById('cronDetalleBody').innerHTML =
+    row('Mensajero', b.nombreMensajero)
+    +row('Fecha y Horario', formatFechaCorta(b.fecha)+' de '+b.horaInicio+' a '+b.horaFin+' hrs')
+    +row('Área', b.area||'—')
+    +row('Solicitante', b.solicitante||'—')
+    +row('Concepto', b.concepto)
     +'<div style="height:10px;"></div>';
   openModal('cronDetalleModal');
 }
