@@ -1020,6 +1020,12 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
               <div id="fechaFuturaField" style="display:none;margin-bottom:8px;">
                 <input class="field-input" type="date" id="fFecha" oninput="checkConflictos()" onchange="checkConflictos()">
               </div>
+              <div id="sinMensajeroWrap" style="display:none;margin-bottom:8px;background:var(--amber-pale);border:1px solid rgba(255,165,2,0.25);border-radius:var(--radius-xs);padding:9px 10px;">
+                <label style="display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--amber);cursor:pointer;line-height:1.4;">
+                  <input type="checkbox" id="fSinMensajero" style="margin-top:2px;">
+                  <span>📢 Enviar a la <strong>Bolsa de Vueltas</strong> — sin mensajero asignado, cualquiera de turno puede tomarla</span>
+                </label>
+              </div>
             </div>
             <div class="field-group">
               <div class="field-label">Hora requerida <span class="req">*</span></div>
@@ -1159,6 +1165,10 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
             <div class="cron-leyenda-item">
               <div class="cron-leyenda-box" style="background:#1e3a5f;border:1px solid #3B82F6;">🏖</div>
               <div class="cron-leyenda-text"><span class="cron-leyenda-name">🏖 Ausencia</span><span class="cron-leyenda-sub">Vacaciones, día libre o incapacidad</span></div>
+            </div>
+            <div class="cron-leyenda-item">
+              <div class="cron-leyenda-box cron-block-bloqueo" style="background-color:#64748B;">🔒</div>
+              <div class="cron-leyenda-text"><span class="cron-leyenda-name">🔒 Pendiente de asignar</span><span class="cron-leyenda-sub">Solicitud programada en la Bolsa de Vueltas — cualquier mensajero puede tomarla</span></div>
             </div>
             <div class="cron-leyenda-item">
               <div class="cron-leyenda-box" style="border:2px solid var(--iq-green);background:transparent;font-size:9px;color:var(--iq-green);font-weight:700;">◀</div>
@@ -1368,6 +1378,14 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
     <!-- MENSAJERO: HOME -->
     <div class="screen" id="screen-mensajero-home">
       <div style="padding-top:14px;">
+        <!-- BOLSA DE VUELTAS: solicitudes programadas sin mensajero asignado -->
+        <div id="mBolsaWrap" style="display:none;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div class="section-label" style="margin-bottom:0;color:var(--amber);">📢 Solicitudes programadas disponibles</div>
+            <span id="mBolsaBadge" style="display:none;background:var(--amber-pale);color:var(--amber);font-size:10px;font-weight:700;font-family:var(--mono);padding:2px 8px;border-radius:20px;border:1px solid rgba(255,165,2,0.25);"></span>
+          </div>
+          <div id="mBolsaProgramadas"></div>
+        </div>
         <!-- SHIFT INDICATOR -->
         <div class="shift-indicator" id="shiftIndicator">
           <div style="font-size:24px;" id="shiftIcon">🌅</div>
@@ -2789,6 +2807,15 @@ function navegarAMensajeros(){
     if(!hora){showToast('⚠️ Selecciona hora requerida');return;}
   }
 
+  // Bolsa de Vueltas: solicitud programada sin mensajero — solo aplica a fecha futura,
+  // salta la selección de mensajero e ir directo a la previsualización
+  const sinMensajero = fechaMode==='futura' && !!document.getElementById('fSinMensajero')?.checked;
+  if(sinMensajero){
+    APP.mensajero = null;
+    try{ goToPreview(); }catch(e){ console.warn(e); }
+    return;
+  }
+
   // Navigate to mensajero screen
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   const dest = document.getElementById('screen-mensajero-select');
@@ -3292,7 +3319,7 @@ function listenSolicitudes(){
   const q=query(collection(window.db,'solicitudes'),orderBy('timestamp','desc'));
   APP.unsubSolicitudes=onSnapshot(q,snap=>{
     APP.solicitudes=snap.docs.map(d=>({id:d.id,...d.data()}));
-    if(APP.role==='mensajero'){renderMVueltas();renderApoyoAlerts(APP.solicitudes);}
+    if(APP.role==='mensajero'){renderMVueltas();renderApoyoAlerts(APP.solicitudes);renderBolsaProgramadas();}
     if(APP.role==='admin'){renderAdminDash();renderAdminSols();renderProgramacionesFuturas();}
   });
 }
@@ -3312,6 +3339,89 @@ function renderMAgenda(){
       </div>
       <div class="vuelta-prio ${v.prioridad}">${v.prioridad.toUpperCase()}</div>
     </div>`).join('');
+}
+
+// ── BOLSA DE VUELTAS — solicitudes programadas sin mensajero asignado ──
+function renderBolsaProgramadas(){
+  const wrap = document.getElementById('mBolsaWrap');
+  const cont = document.getElementById('mBolsaProgramadas');
+  const badge = document.getElementById('mBolsaBadge');
+  if(!wrap || !cont) return;
+  const hoy = cronFechaStr(new Date());
+  const pendientes = (APP.solicitudes||[]).filter(s=>
+    s.pendienteAsignar===true && !s.cancelada && s.status!=='completada' &&
+    (!s.fechaProgramada || s.fechaProgramada>=hoy)
+  ).sort((a,b)=>(a.fechaProgramada||'').localeCompare(b.fechaProgramada||'')||(a.hora||'').localeCompare(b.hora||''));
+
+  wrap.style.display = pendientes.length ? 'block' : 'none';
+  if(badge){
+    badge.style.display = pendientes.length ? 'inline-block' : 'none';
+    badge.textContent = pendientes.length;
+  }
+  if(!pendientes.length){ cont.innerHTML=''; return; }
+
+  cont.innerHTML = pendientes.map(s=>{
+    const detalle = s.transporte
+      ? transporteDetalleHTML(s.transporte)
+      : `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.5;"><strong>📋</strong> ${s.necesidad||'—'}<br><strong>📌</strong> ${s.destino||'—'}</div>`;
+    const contacto = s.transporte?.contacto || s.telefono || '—';
+    const notas = s.transporte?.notasOp || s.observaciones || '';
+    return `<div class="vuelta-card ${s.prioridad||'baja'}" style="border-left-color:var(--amber);margin-bottom:10px;">
+      <div class="vuelta-header" style="cursor:pointer;" onclick="toggleBolsaCard('${s.id}')">
+        <span>${getAreaIcon(s.areaId)}</span>
+        <span class="vuelta-area">${s.area}</span>
+        <span class="vuelta-prio ${s.prioridad||'baja'}">${(s.prioridad||'baja').toUpperCase()}</span>
+        <span style="margin-left:auto;font-size:10.5px;color:var(--text-muted);font-family:var(--mono);white-space:nowrap;">🔒 ${s.fechaProgramada||''} · ${s.hora||''} ▾</span>
+      </div>
+      <div id="bolsaBody_${s.id}" style="display:none;">
+        <div style="font-size:10px;color:var(--text-muted);font-family:var(--mono);margin:4px 0;">Folio: ${s.folio||s.id}</div>
+        ${detalle}
+        <div style="font-size:11.5px;color:var(--text-secondary);margin-top:6px;">📞 Contacto en sitio: ${contacto}</div>
+        ${notas?`<div style="font-size:11.5px;color:var(--text-secondary);margin-top:3px;">📝 ${notas}</div>`:''}
+      </div>
+      <button class="btn btn-primary" style="margin-top:10px;" onclick="tomarSolicitud('${s.id}')">🙋‍♂️ Tomar esta solicitud</button>
+    </div>`;
+  }).join('');
+}
+
+function toggleBolsaCard(id){
+  const el = document.getElementById('bolsaBody_'+id);
+  if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
+// Mensajero toma una solicitud de la bolsa — PASO 2 de la notificación de WhatsApp
+function tomarSolicitud(solId){
+  if(!APP.user){showToast('⚠️ Sesión no válida');return;}
+  const sol = (APP.solicitudes||[]).find(s=>s.id===solId||s.folio===solId);
+  if(!sol){showToast('⚠️ Solicitud no encontrada');return;}
+  if(!sol.pendienteAsignar){showToast('⚠️ Esta solicitud ya fue tomada');return;}
+
+  const waMsg = '✅ ROUTEIQ - SOLICITUD CONFIRMADA'
+    +'\nFolio: '+(sol.folio||sol.id)
+    +'\nArea: '+(sol.area||'—')
+    +'\nSolicita: '+(sol.solicitante||'—')
+    +'\nFecha programada: '+(sol.fechaProgramada||'—')
+    +'\nHora: '+(sol.hora||'—')+' hrs'
+    +'\nDestino: '+(sol.destino||'—')
+    +'\nMensajero: '+APP.user.name+' (ASIGNADO) ✅'
+    +'\n\n🎯 El mensajero '+APP.user.name+' ha tomado la solicitud. Sus bloques de tiempo han quedado reservados en el Cronograma General.'
+    +'\n52-Enterado | 58-En ruta | 59-Terminada';
+  const waBase = (sol.areaGroup==='MMS'&&APP.cfgWa?.MMS) ? APP.cfgWa.MMS
+    : (APP.cfgWa?.HES) ? APP.cfgWa.HES : 'https://wa.me/';
+  const waUrl = waBase.includes('chat.whatsapp.com')
+    ? waBase : waBase+'?text='+encodeURIComponent(waMsg);
+  // iOS FIX: abrir WhatsApp primero, como acción directa del usuario
+  window.open(waUrl, '_blank');
+
+  showToast('🙋‍♂️ Solicitud tomada — ahora es tuya');
+
+  if(window.db && window.fbFns){
+    const{doc,updateDoc}=window.fbFns;
+    updateDoc(doc(window.db,'solicitudes',sol.id),{
+      mensajeroId:APP.user.id, mensajeroNombre:APP.user.name,
+      pendienteAsignar:false, status:'en_proceso'
+    }).catch(e=>{console.warn('tomarSolicitud:',e);showToast('⚠️ No se pudo actualizar la solicitud, intenta de nuevo');});
+  }
 }
 
 function renderMVueltas(){
@@ -4563,9 +4673,13 @@ function selFechaMode(mode){
   document.getElementById('btnFutura').className = 'timer-opt' + (mode==='futura'?' active':'');
   const ff = document.getElementById('fechaFuturaField');
   if(ff) ff.style.display = mode==='futura' ? 'block' : 'none';
+  const smw = document.getElementById('sinMensajeroWrap');
+  if(smw) smw.style.display = mode==='futura' ? 'block' : 'none';
   if(mode==='hoy'){
     const fd = document.getElementById('fFecha');
     if(fd) fd.value = '';
+    const sm = document.getElementById('fSinMensajero');
+    if(sm) sm.checked = false;
   } else {
     const fd = document.getElementById('fFecha');
     if(fd && !fd.value){
@@ -4801,8 +4915,28 @@ function goToPreview(){
   const hoy = cronFechaStr(new Date());
   APP._esFutura = fecha !== hoy;
   const pLabel = APP.prioridad==='alta'?'ALTA':APP.prioridad==='media'?'MEDIA':'BAJA';
+  const pendienteAsignar = APP._esFutura && !APP.mensajero;
   let msg;
-  if(APP.area?.id === 'transporte'){
+  if(pendienteAsignar){
+    if(APP.area?.id === 'transporte'){
+      msg = buildTransporteMsg(nombre, fecha, obs)
+        +'\nMensajero: PENDIENTE DE ASIGNAR ⏳'
+        +'\nEnviado: '+now+' hrs'
+        +'\n\n💬 Solicitud registrada en plataforma. El mensajero será designado por Coordinación.';
+    } else {
+      msg = 'ROUTEIQ - SOLICITUD PROGRAMADA'
+        +'\nArea: '+(APP.area?.name||'')
+        +'\nSolicita: '+nombre
+        +'\nPrioridad: '+pLabel
+        +'\nFecha programada: '+fecha
+        +'\nHora: '+hora+' hrs'
+        +'\nNecesidad: '+necesidad
+        +'\nDestino: '+(destino||'—')
+        +'\nMensajero: PENDIENTE DE ASIGNAR ⏳'
+        +'\nEnviado: '+now+' hrs'
+        +'\n\n💬 Solicitud registrada en plataforma. El mensajero será designado por Coordinación.';
+    }
+  } else if(APP.area?.id === 'transporte'){
     msg = buildTransporteMsg(nombre, fecha, obs) + '\nMensajero: '+mName+'\nEnviado: '+now+' hrs';
   } else {
     msg = 'ROUTEIQ - SOLICITUD'+(APP._esFutura?' PROGRAMADA':'')
@@ -4847,10 +4981,32 @@ async function sendSolicitud(){
   const fecha = getFechaSeleccionada ? getFechaSeleccionada() : cronFechaStr(new Date());
   const hoy = cronFechaStr(new Date());
   const esFutura = fecha !== hoy;
+  const pendienteAsignar = esFutura && !APP.mensajero;
 
   // Build message — Transporte de Personal gets special format
   let waMsg;
-  if(APP.area?.id === 'transporte'){
+  if(pendienteAsignar){
+    if(APP.area?.id === 'transporte'){
+      waMsg = buildTransporteMsg(nombre, fecha, obs)
+        +'\nFolio: '+folio
+        +'\nMensajero: PENDIENTE DE ASIGNAR ⏳'
+        +'\nEnviado: '+now+' hrs'
+        +'\n\n💬 Solicitud registrada en plataforma. El mensajero será designado por Coordinación.';
+    } else {
+      waMsg = 'ROUTEIQ - SOLICITUD PROGRAMADA'
+        +'\nFolio: '+folio
+        +'\nArea: '+(APP.area?.name||'—')
+        +'\nSolicita: '+nombre
+        +'\nPrioridad: '+pLabel
+        +'\nFecha programada: '+fecha
+        +'\nHora: '+hora+' hrs'
+        +'\nNecesidad: '+necesidad
+        +'\nDestino: '+(destino||'—')
+        +'\nMensajero: PENDIENTE DE ASIGNAR ⏳'
+        +'\nEnviado: '+now+' hrs'
+        +'\n\n💬 Solicitud registrada en plataforma. El mensajero será designado por Coordinación.';
+    }
+  } else if(APP.area?.id === 'transporte'){
     waMsg = buildTransporteMsg(nombre, esFutura?fecha:new Date().toLocaleDateString('es-MX'), obs)
       +'\nFolio: '+folio
       +'\nMensajero: '+mName
@@ -4896,7 +5052,10 @@ async function sendSolicitud(){
     setDoc(doc(window.db,'solicitudes',folio),{
       folio, area:APP.area?.name, areaId:APP.area?.id, areaGroup:APP.area?.group,
       solicitante:nombre, prioridad:APP.prioridad, necesidad, hora, destino,
-      observaciones:obs, mensajeroId:APP.mensajero?.id||null, mensajeroNombre:mName,
+      observaciones:obs,
+      mensajeroId:pendienteAsignar?null:(APP.mensajero?.id||null),
+      mensajeroNombre:pendienteAsignar?'PENDIENTE DE ASIGNAR':mName,
+      pendienteAsignar,
       status:'pendiente', codigo:null, cancelada:false,
       transporte:APP.area?.id==='transporte'?collectTransporte():null,
       timestamp:serverTimestamp(), tiempoCreado:new Date().toISOString(),
@@ -6412,7 +6571,10 @@ function cronRenderGantt(theadId, bodyId, weekLabelId){
       solsEnCelda.forEach(s => {
         const mid = normId(s.mensajeroId||s.mensajeroNombre||'');
         const m = CRON_MENSAJEROS.find(x=>x.id===mid);
-        if(!m) return;
+        // "Servicios Programados Pendientes": solicitud programada aún sin
+        // mensajero (Bolsa de Vueltas) — se pinta como bloque tramado neutro
+        // en vez de ocultarse, para que Coordinación la vea reservada.
+        if(!m && !s.pendienteAsignar) return;
         // NOTA: antes se ocultaba el bloque si la hora caía fuera del turno
         // nominal del mensajero (m.turnoIni/turnoFin). Eso escondía
         // solicitudes reales ya asignadas (ej. 6:30am, fuera de cualquier
@@ -6441,12 +6603,16 @@ function cronRenderGantt(theadId, bodyId, weekLabelId){
         if(finalizada) cls += ' finalizada';
         if(compacto) cls += ' compacto';
         if(!durMin) cls += ' sin-estimar';
+        if(s.pendienteAsignar) cls += ' cron-block-bloqueo';
 
         const geo = 'top:'+topPx+'px;bottom:auto;height:'+hPx+'px;z-index:'+(finalizada?'1':'2')+';'
           +(durMin&&!finalizada?'box-shadow:0 2px 8px rgba(0,0,0,0.4);':'');
 
         let inner;
-        if(compacto){
+        if(s.pendienteAsignar){
+          inner = '<span class="cron-block-hora">🔒 PENDIENTE · '+(s.hora||'').slice(0,5)+'</span>'
+            +'<span class="cron-block-area">'+area+'</span>';
+        } else if(compacto){
           // Una sola línea: hora · área · duración (+ Finalizada si aplica)
           inner = '<span class="cron-block-hora">'+horaTxt+'</span>'
             +'<span class="cron-block-area" style="font-size:11px;flex:1;">'+sIcon+area+'</span>'
@@ -6459,7 +6625,9 @@ function cronRenderGantt(theadId, bodyId, weekLabelId){
               :(prio?'<span class="cron-block-prio">'+prio+' '+(s.prioridad||'')+'</span>':''));
         }
 
-        tbHTML += '<div class="'+cls+'" style="background:'+m.color+';'+geo+'" data-bid="'+(s.id||s.folio||'')+'">'+inner+'</div>';
+        const bgProp = s.pendienteAsignar ? 'background-color' : 'background';
+        const bgColor = s.pendienteAsignar ? '#64748B' : m.color;
+        tbHTML += '<div class="'+cls+'" style="'+bgProp+':'+bgColor+';'+geo+'" data-bid="'+(s.id||s.folio||'')+'">'+inner+'</div>';
       });
 
       // Bloqueos de agenda (apartados por el mensajero) de este día y hora
