@@ -1846,10 +1846,57 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.4;">Liberación administrativa: usa esto solo si el usuario no puede registrar su propio regreso (emergencia, cambio de turno, etc). Se notifica a guardias que el cierre lo hizo Coordinación.</p>
           <div id="adminFlotaEnUso"></div>
           <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin:14px 0 6px;">📋 Bitácora de movimientos</div>
+          <p style="font-size:10.5px;color:var(--text-muted);margin-bottom:8px;line-height:1.4;">Muestra solo los últimos 15 días. Para movimientos más antiguos usa el buscador de abajo.</p>
           <div id="adminFlotaBitacora"></div>
           <button class="btn-excel" style="margin-top:10px;" onclick="vDownloadCSV()">📊 Exportar bitácora (.csv)</button>
           <button class="btn btn-secondary" style="margin-top:8px;" onclick="vDownloadPDF()">📄 Exportar reporte (PDF)</button>
           <button class="btn btn-secondary" style="margin-top:8px;" onclick="vDocsOpen()">📄 Documentos de la flota</button>
+        </div>
+
+        <!-- HISTORIAL BUSCADOR — VEHÍCULOS -->
+        <div class="form-card" style="margin-top:14px;">
+          <div class="section-label">🔍 Buscar en historial de vehículos</div>
+          <div class="two-col" style="margin-bottom:10px;">
+            <div class="field-group">
+              <div class="field-label">Desde</div>
+              <input class="field-input" type="date" id="vHistDesde">
+            </div>
+            <div class="field-group">
+              <div class="field-label">Hasta</div>
+              <input class="field-input" type="date" id="vHistHasta">
+            </div>
+          </div>
+          <div class="two-col" style="margin-bottom:10px;">
+            <div class="field-group">
+              <div class="field-label">Vehículo</div>
+              <select class="field-input" id="vHistVehiculo">
+                <option value="">Todos los vehículos</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <div class="field-label">Mensajero / Conductor</div>
+              <select class="field-input" id="vHistMensajero">
+                <option value="">Todos</option>
+                <option value="ivan">Iván</option>
+                <option value="moises">Moisés</option>
+                <option value="pedro">Pedro</option>
+                <option value="hugo">Hugo</option>
+                <option value="victor">Víctor</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Estatus</div>
+            <select class="field-input" id="vHistEstado">
+              <option value="">Todos</option>
+              <option value="fuera">🚗 Fuera / En ruta</option>
+              <option value="regresado">✅ Regresado (Disponible)</option>
+              <option value="reservado">📅 Reservado</option>
+              <option value="cancelada">🚫 Cancelada</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="buscarHistorialVehiculos()" style="margin-bottom:8px;">🔍 Buscar</button>
+          <div id="vHistResultados" style="margin-top:8px;"></div>
         </div>
         <div style="height:16px;"></div>
       </div>
@@ -7417,6 +7464,15 @@ async function renderAdminFlota(){
     editEl.innerHTML=filas.join('');
   }
 
+  // Poblar dropdown de vehículos del buscador de historial
+  const vHistVehEl=document.getElementById('vHistVehiculo');
+  if(vHistVehEl){
+    const sel=vHistVehEl.value;
+    vHistVehEl.innerHTML='<option value="">Todos los vehículos</option>'
+      +FLOTA.map(v=>'<option value="'+v.placas+'">'+v.nombre+'</option>').join('');
+    vHistVehEl.value=sel;
+  }
+
   // Vehículos en uso ahora — liberación administrativa (caso emergencia)
   const enUsoEl=document.getElementById('adminFlotaEnUso');
   if(enUsoEl){
@@ -7452,9 +7508,11 @@ async function renderAdminFlota(){
   }
   alertasEl.innerHTML=alertasHTML;
 
-  // Bitácora (últimos 25)
-  const ultimos=vMovs.slice(0,25);
+  // Bitácora (solo últimos 15 días — para movimientos más antiguos, usar el buscador)
+  const bitCutoff=new Date(Date.now()-15*24*60*60*1000).toISOString().slice(0,10);
+  const ultimos=vMovs.filter(m=>!m.fechaUso||m.fechaUso>=bitCutoff);
   const estLabel={fuera:['FUERA','var(--amber)'],regresado:['REGRESADO','var(--iq-green)'],reservado:['RESERVADO','var(--blue)'],cancelada:['CANCELADA','var(--text-muted)']};
+  bitEl.innerHTML=''; // limpia antes de re-renderizar para evitar tarjetas duplicadas
   bitEl.innerHTML=!ultimos.length
     ?'<div class="empty-state"><div class="ei">📭</div><p>Sin movimientos registrados</p></div>'
     :ultimos.map(m=>{
@@ -7471,6 +7529,60 @@ async function renderAdminFlota(){
         +(m.regresoAt?'<br>Regreso: '+vFmtHora(m.regresoAt)+(m.kmRegreso?' · Km '+m.kmRegreso:'')+(m.gasRegreso?' · ⛽ '+(GAS_LABELS[m.gasRegreso]||m.gasRegreso)+(m.gasRegreso==='no_verificado'&&m.gasRegresoMotivo?' ('+m.gasRegresoMotivo+')':''):''):'')
         +(m.observaciones?'<br>📝 '+m.observaciones:'')+'</div></div>';
     }).join('');
+}
+
+// ── Buscar en historial de vehículos (sin límite de 15 días) ──
+async function buscarHistorialVehiculos(){
+  if(!window.db||!window.fbFns){showToast('Sin conexion');return;}
+  const desde = document.getElementById('vHistDesde').value;
+  const hasta = document.getElementById('vHistHasta').value;
+  const placas = document.getElementById('vHistVehiculo').value;
+  const mens = document.getElementById('vHistMensajero').value;
+  const estado = document.getElementById('vHistEstado').value;
+  const res = document.getElementById('vHistResultados');
+  res.innerHTML=''; // limpia antes de renderizar para evitar tarjetas duplicadas
+  res.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px 0;">Buscando...</div>';
+  try{
+    const{collection,getDocs}=window.fbFns;
+    const snap = await getDocs(collection(window.db,'flotaMovimientos'));
+    let all = snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(desde) all = all.filter(m => (m.fechaUso||'') >= desde);
+    if(hasta) all = all.filter(m => (m.fechaUso||'') <= hasta);
+    if(placas) all = all.filter(m => m.placas === placas);
+    if(mens){
+      const nombre = (MENSAJEROS_DATA[mens]?.name||'').toLowerCase();
+      all = all.filter(m => (m.usuario||'').toLowerCase().includes(nombre));
+    }
+    if(estado) all = all.filter(m => m.estado === estado);
+    all.sort((a,b) => (b.fechaUso||'').localeCompare(a.fechaUso||'') || (b.salidaAt||'').localeCompare(a.salidaAt||''));
+
+    res.innerHTML=''; // limpia el "Buscando..." antes de pintar resultados
+    if(!all.length){
+      res.innerHTML='<div class="empty-state"><div class="ei">🔍</div><p>Sin resultados para los filtros seleccionados</p></div>';
+      return;
+    }
+    const estLabel={fuera:['FUERA','var(--amber)'],regresado:['REGRESADO','var(--iq-green)'],reservado:['RESERVADO','var(--blue)'],cancelada:['CANCELADA','var(--text-muted)']};
+    const header = '<div style="font-size:11px;color:var(--iq-green);font-weight:700;margin-bottom:8px;">'+all.length+' resultado'+(all.length>1?'s':'')+'</div>';
+    const rows = all.slice(0,50).map(m=>{
+      const fl = FLOTA.find(f=>f.placas===m.placas);
+      const est = estLabel[m.estado]||[m.estado||'—','var(--text-muted)'];
+      return '<div style="background:var(--iq-surface);border:1px solid var(--iq-border);border-radius:var(--radius-xs);padding:9px 12px;margin-bottom:6px;">'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
+        +'<span style="font-size:12px;font-weight:700;flex:1;">🚗 '+(fl?fl.nombre:(m.placas||'—'))+'</span>'
+        +'<span style="font-size:10px;font-family:var(--mono);color:var(--iq-green);">'+(m.folioVeh||m.id)+'</span>'
+        +'<span style="font-size:10px;font-weight:700;color:'+est[1]+';">'+est[0]+'</span>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--text-muted);">'
+        +'📅 '+(m.fechaUso||'—')+' · 👤 '+(m.usuario||'—')
+        +(m.kmSalida?' · 🛣 Km '+m.kmSalida+(m.kmRegreso?' → '+m.kmRegreso:''):'')
+        +(m.gasSalida?' · ⛽ '+(GAS_LABELS[m.gasSalida]||m.gasSalida):'')
+        +'</div></div>';
+    }).join('');
+    res.innerHTML = header + rows + (all.length>50?'<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:8px;">Mostrando primeros 50 resultados.</div>':'');
+  }catch(e){
+    console.error(e);
+    res.innerHTML='<div style="font-size:12px;color:var(--red);">Error al buscar. Intenta de nuevo.</div>';
+  }
 }
 
 // ── Escala de gasolina (Vacío · 1/8 · 1/4 · 1/2 · 3/4 · Full) ──
