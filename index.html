@@ -1020,11 +1020,28 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
               <div id="fechaFuturaField" style="display:none;margin-bottom:8px;">
                 <input class="field-input" type="date" id="fFecha" oninput="checkConflictos()" onchange="checkConflictos()">
               </div>
-              <div id="sinMensajeroWrap" style="display:none;margin-bottom:8px;background:var(--amber-pale);border:1px solid rgba(255,165,2,0.25);border-radius:var(--radius-xs);padding:9px 10px;">
-                <label style="display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--amber);cursor:pointer;line-height:1.4;">
-                  <input type="checkbox" id="fSinMensajero" style="margin-top:2px;">
-                  <span>📢 Enviar a la <strong>Bolsa de Vueltas</strong> — sin mensajero asignado, cualquiera de turno puede tomarla</span>
-                </label>
+              <div id="sinMensajeroWrap" style="display:none;margin-bottom:8px;">
+                <div class="field-label" style="margin-bottom:8px;">¿Cómo quieres asignar el mensajero?</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <div id="asigModoBolsa" onclick="selAsigModo('bolsa')" style="cursor:pointer;border:1.5px solid rgba(255,165,2,0.35);background:var(--amber-pale);border-radius:var(--radius-sm);padding:12px 14px;transition:all 0.12s;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <span style="font-size:18px;">📢</span>
+                      <span style="font-weight:800;font-size:13px;color:var(--amber);">Enviar a Bolsa de Vueltas</span>
+                    </div>
+                    <div style="font-size:10.5px;color:var(--amber);opacity:0.85;margin-top:2px;margin-left:26px;">Sin mensajero definido</div>
+                    <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;line-height:1.4;">Elige esta opción si NO sabes qué mensajero estará disponible. Coordinación asignará al mensajero en la plataforma.</div>
+                  </div>
+                  <div id="asigModoDirecto" onclick="selAsigModo('directo')" style="cursor:pointer;border:1.5px solid var(--iq-border2);background:var(--iq-surface2);border-radius:var(--radius-sm);padding:12px 14px;transition:all 0.12s;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <span style="font-size:18px;">👤</span>
+                      <span style="font-weight:800;font-size:13px;color:var(--text-primary);">Elegir mensajero directamente</span>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;line-height:1.4;">Elige esta opción solo si YA sabes exactamente qué mensajero cubrirá el servicio.</div>
+                  </div>
+                </div>
+                <div id="asigModoInfo" style="display:none;margin-top:8px;background:var(--iq-green-pale);border:1px solid rgba(0,200,150,0.25);border-radius:var(--radius-xs);padding:9px 10px;font-size:11.5px;color:var(--iq-green);line-height:1.4;">
+                  ℹ️ Tu solicitud se registrará en plataforma y Coordinación asignará al mensajero. Se notificará en WhatsApp para seguimiento.
+                </div>
               </div>
             </div>
             <div class="field-group">
@@ -1246,10 +1263,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
           Enviar al grupo de mensajería
         </button>
-        <button class="btn btn-secondary" onclick="showFuturaSolicitudPreview()" id="btnPreviewWa" style="display:none;">
-          👁️ Ver previsualización del mensaje
-        </button>
-        <button class="btn btn-secondary" onclick="goScreen('screen-mensajero-select')">← Cambiar mensajero</button>
+        <button class="btn btn-secondary" id="btnPreviewBack" onclick="volverDesdePreview()">← Cambiar mensajero</button>
       </div>
     </div>
 
@@ -2807,13 +2821,14 @@ function navegarAMensajeros(){
     if(!hora){showToast('⚠️ Selecciona hora requerida');return;}
   }
 
-  // Bolsa de Vueltas: solicitud programada sin mensajero — solo aplica a fecha futura,
-  // salta la selección de mensajero e ir directo a la previsualización
-  const sinMensajero = fechaMode==='futura' && !!document.getElementById('fSinMensajero')?.checked;
-  if(sinMensajero){
-    APP.mensajero = null;
-    try{ goToPreview(); }catch(e){ console.warn(e); }
-    return;
+  // Bolsa de Vueltas: solicitud programada sin mensajero — solo aplica a fecha futura
+  if(fechaMode==='futura'){
+    if(!asigModo){showToast('⚠️ Elige cómo asignar el mensajero: Bolsa de Vueltas o directamente');return;}
+    if(asigModo==='bolsa'){
+      APP.mensajero = null;
+      try{ goToPreview(); }catch(e){ console.warn(e); }
+      return;
+    }
   }
 
   // Navigate to mensajero screen
@@ -4666,6 +4681,7 @@ function checkAutoArchive(){
 // ════════════════════════════════════════════════════
 
 let fechaMode = 'hoy';
+let asigModo = null; // null | 'bolsa' | 'directo' — solo aplica con fechaMode==='futura'
 
 function selFechaMode(mode){
   fechaMode = mode;
@@ -4678,8 +4694,8 @@ function selFechaMode(mode){
   if(mode==='hoy'){
     const fd = document.getElementById('fFecha');
     if(fd) fd.value = '';
-    const sm = document.getElementById('fSinMensajero');
-    if(sm) sm.checked = false;
+    asigModo = null;
+    renderAsigModoCards();
   } else {
     const fd = document.getElementById('fFecha');
     if(fd && !fd.value){
@@ -4687,6 +4703,29 @@ function selFechaMode(mode){
     }
   }
   checkConflictos();
+}
+
+// Tarjetas "Bolsa de Vueltas" vs "Elegir mensajero directamente" (fecha futura)
+function selAsigModo(modo){
+  asigModo = modo;
+  renderAsigModoCards();
+}
+function renderAsigModoCards(){
+  const bolsa = document.getElementById('asigModoBolsa');
+  const directo = document.getElementById('asigModoDirecto');
+  const info = document.getElementById('asigModoInfo');
+  if(bolsa){
+    const sel = asigModo==='bolsa';
+    bolsa.style.border = sel ? '1.5px solid var(--amber)' : '1.5px solid rgba(255,165,2,0.35)';
+    bolsa.style.boxShadow = sel ? '0 0 0 2px rgba(255,165,2,0.25)' : 'none';
+  }
+  if(directo){
+    const sel = asigModo==='directo';
+    directo.style.border = sel ? '1.5px solid var(--iq-green)' : '1.5px solid var(--iq-border2)';
+    directo.style.background = sel ? 'var(--iq-green-pale)' : 'var(--iq-surface2)';
+    directo.style.boxShadow = sel ? '0 0 0 2px rgba(0,200,150,0.25)' : 'none';
+  }
+  if(info) info.style.display = asigModo==='bolsa' ? 'block' : 'none';
 }
 
 function getFechaSeleccionada(){
@@ -4955,9 +4994,18 @@ function goToPreview(){
   const prevEl = document.getElementById('msgPreview');
   if(prevEl) prevEl.textContent = msg;
   APP._msgPreview = msg;
+  APP._pendienteAsignar = pendienteAsignar;
   goScreen('screen-preview');
-  const btn = document.getElementById('btnPreviewWa');
-  if(btn) btn.style.display = APP._esFutura ? 'flex' : 'none';
+  const backBtn = document.getElementById('btnPreviewBack');
+  if(backBtn) backBtn.textContent = pendienteAsignar ? '← Volver a modificar' : '← Cambiar mensajero';
+}
+
+function volverDesdePreview(){
+  if(APP._pendienteAsignar){
+    goScreen('screen-area-form');
+  } else {
+    goScreen('screen-mensajero-select');
+  }
 }
 
 // sendSolicitud - saves fecha futura and creates evento if needed
