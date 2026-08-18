@@ -1,0 +1,195 @@
+rules_version = '2';
+
+// ════════════════════════════════════════════════════════════════
+// RouteIQ — Firestore Security Rules (borrador "deny-by-default")
+//
+// LÉEME ANTES DE DESPLEGAR:
+// Esta app hoy NO usa Firebase Authentication (ver CLAUDE.md). Si estas
+// reglas se despliegan tal cual, TODO deja de funcionar, porque
+// `request.auth` siempre será null y casi todas las reglas de abajo
+// exigen isSignedIn().
+//
+// Requisito previo obligatorio (una sola vez, no rompe la UI actual):
+//   1) En Firebase Console → Authentication → Sign-in method → activar
+//      "Anonymous".
+//   2) En index.html, en el <script type="module"> inicial, importar
+//      getAuth + signInAnonymously de firebase-auth y llamarlo antes de
+//      disparar 'firebaseReady' (código exacto ya preparado, ver el
+//      mensaje de esta conversación — no se aplicó automáticamente a
+//      index.html para no tocar producción sin tu confirmación).
+//   3) Desplegar primero el cambio de index.html, confirmar que la app
+//      sigue funcionando (ya con sesión anónima), y SOLO ENTONCES
+//      desplegar este archivo con:
+//        firebase deploy --only firestore:rules
+//
+// Estado actual de estas reglas (Etapa 1): exigen "estar autenticado"
+// (aunque sea de forma anónima) para leer/escribir casi todo, y cierran
+// por completo el acceso de cliente a los documentos de config que
+// contienen PINs reales (config/pins, config/areaPins) — esos deben
+// pasar a leerse/escribirse SOLO desde una Cloud Function con el Admin
+// SDK (que ignora estas reglas), como se explica en la Etapa 2 del
+// plan de Cloud Function.
+//
+// Etapa 2 (cuando exista la Cloud Function de verificación de PIN con
+// Custom Claims — ver guía paso a paso): reemplazar isSignedIn() por
+// hasRole('coordinacion') / hasRole('mensajero') / hasRole('vehiculos')
+// en los bloques marcados con "// TODO ETAPA 2". Los helpers ya están
+// listos abajo, comentados, para activarlos sin reescribir todo.
+// ════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // TODO ETAPA 2 — descomentar cuando la Cloud Function asigne
+    // custom claims (ej: { role: 'coordinacion' }) tras validar el PIN.
+    // function hasRole(role) {
+    //   return isSignedIn() && request.auth.token.role == role;
+    // }
+    // function isCoordinacion() { return hasRole('coordinacion'); }
+
+    // Bloqueo global por defecto: cualquier colección no listada abajo
+    // queda completamente cerrada a lectura y escritura desde cliente.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ---------- solicitudes ----------
+    // Folio como ID de doc en algunos casos (setDoc) o auto-ID (addDoc).
+    match /solicitudes/{solId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidSolicitud(request.resource.data);
+      allow update: if isSignedIn(); // TODO ETAPA 2: restringir por rol/campo
+      allow delete: if isSignedIn(); // usado por el archivado automático (>15 días)
+    }
+
+    function isValidSolicitud(d) {
+      return d.keys().hasAll(['areaId', 'necesidad', 'hora', 'destino', 'prioridad'])
+        && d.prioridad in ['alta', 'media', 'baja']
+        && (!('status' in d) || d.status in ['pendiente', 'en_proceso', 'completada'])
+        && (!('codigo' in d) || d.codigo in ['52', '58', '59', 52, 58, 59]);
+    }
+
+    // ---------- estatus (estado en vivo de cada mensajero) ----------
+    match /estatus/{mensajeroId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // TODO ETAPA 2: solo el propio mensajero o coordinación
+    }
+
+    // ---------- agendas (vueltas futuras por mensajero) ----------
+    match /agendas/{mensajeroId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // TODO ETAPA 2: solo coordinación asigna
+    }
+
+    // ---------- timers (cronómetros de alimentos/descanso) ----------
+    match /timers/{mensajeroId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // TODO ETAPA 2: solo el propio mensajero
+    }
+
+    // ---------- flotaMovimientos (bitácora de uso vehicular) ----------
+    match /flotaMovimientos/{movId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidFlotaMov(request.resource.data);
+      allow update: if isSignedIn(); // TODO ETAPA 2: solo el usuario titular o coordinación
+      allow delete: if false; // no se observa ningún flujo que borre movimientos
+    }
+
+    function isValidFlotaMov(d) {
+      return d.keys().hasAll(['placas', 'usuario', 'motivo', 'estado'])
+        && d.estado in ['fuera', 'regresado', 'reservado', 'cancelada'];
+    }
+
+    // ---------- flotaConfig / flotaDocs (mantenimiento y documentos) ----------
+    match /flotaConfig/main {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // TODO ETAPA 2: solo coordinación / vehículos
+    }
+    match /flotaDocs/main {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // TODO ETAPA 2: solo coordinación / vehículos
+    }
+
+    // ---------- bitacoras (registro personal del mensajero) ----------
+    match /bitacoras/{entryId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if false; // bitácora es de solo-agregar
+    }
+
+    // ---------- tiempoExtra ----------
+    match /tiempoExtra/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn(); // aprobación/edición por coordinación
+      allow delete: if false;
+    }
+
+    // ---------- eventos (ausencias / bloqueos de agenda) ----------
+    match /eventos/{eventoId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn(); // se observa deleteDoc en la app
+    }
+
+    // ---------- bloqueos_agenda (mensajero apartando su propio tiempo) ----------
+    match /bloqueos_agenda/{bloqueoId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn(); // TODO ETAPA 2: solo el propio mensajero o coordinación
+      allow delete: if isSignedIn(); // "Liberar horario / Terminé antes" borra el bloqueo
+    }
+
+    // ---------- calificaciones (rating al cerrar folio) ----------
+    match /calificaciones/{folio} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn(); // una calificación por folio
+      allow update, delete: if false;
+    }
+
+    // ---------- cronogramaVueltas ----------
+    match /cronogramaVueltas/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    // ---------- config/* — AQUÍ VIVEN LOS PIN REALES ----------
+    // config/pins y config/areaPins quedan COMPLETAMENTE cerrados al
+    // cliente (ni lectura ni escritura). Solo la Cloud Function con
+    // Admin SDK puede tocarlos — el Admin SDK ignora estas reglas por
+    // diseño, así que cerrarlas aquí no rompe la verificación de PIN
+    // una vez migrada al backend (ver guía paso a paso).
+    // El panel visual de Coordinación (loadConfig()/saveCfg() en index.html)
+    // sigue mostrando y editando estos PINs con normalidad — pero ya NO lo
+    // hace con getDoc/setDoc directo. Pasa por dos Cloud Functions nuevas,
+    // solo accesibles con custom claim role=='coordinacion':
+    // adminGetPinsConfig() (lectura) y adminSetPinsConfig() (escritura).
+    // Ver verify-pin-calls.js para el código exacto de reemplazo.
+    match /config/pins {
+      allow read, write: if false;
+    }
+    match /config/areaPins {
+      allow read, write: if false;
+    }
+
+    // whatsapp/empresa no son secretos (link de grupo, nombre de
+    // empresa) — se dejan de lectura abierta a cualquier sesión y
+    // escritura solo para quien esté autenticado, como excepción
+    // consciente de menor riesgo frente a los PIN.
+    match /config/whatsapp {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // TODO ETAPA 2: solo coordinación
+    }
+    match /config/empresa {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // TODO ETAPA 2: solo coordinación
+    }
+  }
+}

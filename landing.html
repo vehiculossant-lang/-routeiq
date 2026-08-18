@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RouteIQ — Plataforma Inteligente de Logística Hospitalaria</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Sora','sans-serif'], mono: ['DM Mono','monospace'] },
+        colors: {
+          navy: '#0A0E1A',
+          surface: '#111827',
+          surface2: '#1A2035',
+          border: 'rgba(255,255,255,0.08)',
+          iqgreen: '#00C896',
+          iqgreendark: '#00A878',
+          iqblue: '#3D9CF0',
+          iqamber: '#FFA502',
+        },
+      }
+    }
+  }
+</script>
+<style>
+  html{scroll-behavior:smooth;}
+  body{background:#0A0E1A;}
+  .glow-text{text-shadow:0 0 40px rgba(0,200,150,0.35);}
+  .bg-grid{
+    background-image:
+      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size:44px 44px;
+  }
+  .radial-glow{
+    background:radial-gradient(ellipse 60% 50% at 50% 0%, rgba(0,200,150,0.16), transparent 70%);
+  }
+  .card-hover{transition:transform .35s ease, box-shadow .35s ease, border-color .35s ease;}
+  .card-hover:hover{transform:translateY(-6px); border-color:rgba(0,200,150,0.4); box-shadow:0 20px 60px -15px rgba(0,200,150,0.25);}
+
+  /* ── Flip card ── */
+  .flip-scene{perspective:2200px;}
+  .flip-card{
+    position:relative; width:100%; transition:transform .8s cubic-bezier(.4,.2,.2,1);
+    transform-style:preserve-3d;
+  }
+  .flip-scene:hover .flip-card, .flip-card.flipped{ transform:rotateY(180deg); }
+  .flip-face{ backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+  .flip-front{ position:relative; }
+  .flip-back{ position:absolute; inset:0; transform:rotateY(180deg); }
+
+  @keyframes pulseglow{
+    0%,100%{ box-shadow:0 0 0 0 rgba(0,200,150,0.45); }
+    50%{ box-shadow:0 0 0 14px rgba(0,200,150,0); }
+  }
+  .pulse-badge{ animation:pulseglow 2.2s infinite; }
+
+  @keyframes floatY{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+  .float{ animation:floatY 5s ease-in-out infinite; }
+
+  ::selection{ background:#00C896; color:#0A0E1A; }
+  ::-webkit-scrollbar{ width:10px; }
+  ::-webkit-scrollbar-track{ background:#0A0E1A; }
+  ::-webkit-scrollbar-thumb{ background:#1A2035; border-radius:6px; }
+</style>
+</head>
+<body class="font-sans text-white antialiased">
+
+<!-- ══════════ NAV ══════════ -->
+<nav class="fixed top-0 inset-x-0 z-50 backdrop-blur-md bg-navy/70 border-b border-border">
+  <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-iqgreen to-iqgreendark flex items-center justify-center shadow-lg shadow-iqgreen/20">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"><path d="M4 12h10M4 6h16M4 18h7"/><path d="M17 15l4 4-4 4" stroke-width="0"/></svg>
+        <span class="text-white text-lg">⇢</span>
+      </div>
+      <div>
+        <div class="font-extrabold text-lg tracking-tight leading-none">Route<span class="text-iqgreen">IQ</span></div>
+        <div class="text-[9px] tracking-[3px] text-white/40 leading-none mt-0.5">SMART DISPATCH PLATFORM</div>
+      </div>
+    </div>
+    <a href="#planes" class="hidden sm:inline-flex items-center gap-2 bg-iqgreen text-navy font-bold text-sm px-5 py-2.5 rounded-full hover:bg-white transition-colors">
+      Ver planes →
+    </a>
+  </div>
+</nav>
+
+<!-- ══════════ HERO ══════════ -->
+<header class="relative overflow-hidden bg-grid pt-40 pb-28 px-6">
+  <div class="absolute inset-0 radial-glow pointer-events-none"></div>
+  <div class="absolute -top-24 -right-24 w-96 h-96 bg-iqblue/10 rounded-full blur-3xl"></div>
+  <div class="absolute top-40 -left-24 w-72 h-72 bg-iqgreen/10 rounded-full blur-3xl"></div>
+
+  <div class="relative max-w-4xl mx-auto text-center">
+    <div class="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs font-semibold text-iqgreen mb-8">
+      <span class="w-1.5 h-1.5 rounded-full bg-iqgreen animate-pulse"></span>
+      Propuesta exclusiva para Hospital Santander
+    </div>
+
+    <h1 class="text-4xl sm:text-6xl font-extrabold leading-[1.08] tracking-tight glow-text">
+      La Plataforma Inteligente de<br class="hidden sm:block">
+      Logística y <span class="text-iqgreen">Despacho</span><br class="hidden sm:block">
+      diseñada a la medida del<br class="hidden sm:block">
+      <span class="text-iqblue">Hospital Santander</span>
+    </h1>
+
+    <p class="mt-8 text-lg text-white/60 max-w-2xl mx-auto leading-relaxed">
+      Elimina el caos de coordinar mensajería por WhatsApp. RouteIQ te da
+      <span class="text-white font-semibold">trazabilidad absoluta</span> de cada folio,
+      <span class="text-white font-semibold">control de tiempos en tiempo real</span> y visibilidad total
+      de tu flota y tu equipo de mensajeros — desde un solo panel.
+    </p>
+
+    <div class="mt-10 flex flex-col sm:flex-row gap-4 justify-center items-center">
+      <a href="#planes" class="group inline-flex items-center gap-2.5 bg-iqgreen text-navy font-bold text-base px-8 py-4 rounded-2xl shadow-2xl shadow-iqgreen/30 hover:scale-105 hover:bg-white transition-all">
+        Ver planes y precios
+        <span class="group-hover:translate-x-1 transition-transform">→</span>
+      </a>
+      <a href="#cerebro" class="inline-flex items-center gap-2 text-white/70 hover:text-white font-semibold text-sm px-6 py-4 border border-white/15 rounded-2xl hover:border-white/30 transition-colors">
+        Conocer la plataforma
+      </a>
+    </div>
+
+    <div class="mt-16 grid grid-cols-3 gap-6 max-w-lg mx-auto text-center">
+      <div><div class="text-2xl font-extrabold text-iqgreen">100%</div><div class="text-[11px] text-white/40 mt-1 uppercase tracking-wide">Trazable</div></div>
+      <div><div class="text-2xl font-extrabold text-iqblue">24/7</div><div class="text-[11px] text-white/40 mt-1 uppercase tracking-wide">Tiempo real</div></div>
+      <div><div class="text-2xl font-extrabold text-iqamber">0</div><div class="text-[11px] text-white/40 mt-1 uppercase tracking-wide">Folios perdidos</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════ EL CEREBRO OPERATIVO ══════════ -->
+<section id="cerebro" class="max-w-6xl mx-auto px-6 py-24">
+  <div class="text-center max-w-2xl mx-auto mb-16">
+    <div class="text-iqgreen font-bold text-xs tracking-[3px] uppercase mb-3">El cerebro operativo</div>
+    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Nuestros superpoderes</h2>
+    <p class="mt-4 text-white/50">Cuatro reglas de negocio ya construidas y funcionando, pensadas específicamente para la operación diaria de un hospital.</p>
+  </div>
+
+  <div class="grid sm:grid-cols-2 gap-6">
+    <div class="card-hover bg-surface border border-border rounded-3xl p-8">
+      <div class="w-14 h-14 rounded-2xl bg-iqgreen/10 border border-iqgreen/20 flex items-center justify-center text-2xl mb-6">🗓️</div>
+      <h3 class="text-xl font-bold mb-2">Cronograma Gantt Inteligente 24h</h3>
+      <p class="text-white/50 text-sm leading-relaxed">Control visual en tiempo real del estado de cada mensajero y vehículo, hora por hora — disponibilidad, vueltas activas y carga de trabajo de un vistazo.</p>
+    </div>
+    <div class="card-hover bg-surface border border-border rounded-3xl p-8">
+      <div class="w-14 h-14 rounded-2xl bg-iqblue/10 border border-iqblue/20 flex items-center justify-center text-2xl mb-6">🛡️</div>
+      <h3 class="text-xl font-bold mb-2">Seguridad y Flota bajo Control</h3>
+      <p class="text-white/50 text-sm leading-relaxed">Reglas estrictas de registro de kilometraje, gasolina obligatoria en cada salida/regreso, y alertas automáticas de documentos vehiculares por vencer.</p>
+    </div>
+    <div class="card-hover bg-surface border border-border rounded-3xl p-8">
+      <div class="w-14 h-14 rounded-2xl bg-iqamber/10 border border-iqamber/20 flex items-center justify-center text-2xl mb-6">🔖</div>
+      <h3 class="text-xl font-bold mb-2">Trazabilidad de Folios Únicos</h3>
+      <p class="text-white/50 text-sm leading-relaxed">Cada solicitud tiene un folio único rastreable en vivo. Olvídate de servicios perdidos, reclamos cruzados entre áreas o "yo nunca pedí eso".</p>
+    </div>
+    <div class="card-hover bg-surface border border-border rounded-3xl p-8">
+      <div class="w-14 h-14 rounded-2xl bg-purple-400/10 border border-purple-400/20 flex items-center justify-center text-2xl mb-6">🚐</div>
+      <h3 class="text-xl font-bold mb-2">Módulo de Transporte de Personal</h3>
+      <p class="text-white/50 text-sm leading-relaxed">Itinerarios multi-hora y multi-punto totalmente integrados y coordinados, con un formulario dedicado para viajes de personal.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ PLANES / TARJETA FLIP ══════════ -->
+<section id="planes" class="relative py-28 px-6 bg-surface/40 border-y border-border overflow-hidden">
+  <div class="absolute inset-0 bg-grid opacity-40 pointer-events-none"></div>
+  <div class="relative max-w-6xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto mb-6">
+      <div class="text-iqgreen font-bold text-xs tracking-[3px] uppercase mb-3">Inversión</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Planes RouteIQ</h2>
+      <p class="mt-4 text-white/50">Pasa el cursor sobre la tarjeta (o haz clic) para ver por qué esta inversión se paga sola.</p>
+    </div>
+
+    <div class="flip-scene max-w-6xl mx-auto" style="min-height:640px;">
+      <div id="flipCard" class="flip-card" style="min-height:640px;">
+
+        <!-- FRENTE: 3 planes -->
+        <div class="flip-face flip-front">
+          <div class="grid md:grid-cols-3 gap-6 items-start">
+
+            <!-- Básico -->
+            <div class="bg-surface border border-border rounded-3xl p-8 flex flex-col h-full">
+              <div class="text-xs font-bold tracking-wide text-white/40 uppercase mb-3">Plan Básico</div>
+              <div class="flex items-baseline gap-1 mb-1">
+                <span class="text-4xl font-extrabold">$5,000</span>
+                <span class="text-white/40 text-sm">MXN/mes</span>
+              </div>
+              <div class="text-xs text-white/40 mb-6">Hasta 15 usuarios</div>
+              <ul class="space-y-3 text-sm text-white/60 flex-1">
+                <li class="flex gap-2"><span class="text-iqgreen">✓</span> Dispatch y folios en tiempo real</li>
+                <li class="flex gap-2"><span class="text-iqgreen">✓</span> Panel de mensajeros y vehículos</li>
+                <li class="flex gap-2"><span class="text-iqgreen">✓</span> Hasta 15 usuarios activos</li>
+                <li class="flex gap-2 text-white/30"><span>–</span> KPIs e indicadores avanzados</li>
+                <li class="flex gap-2 text-white/30"><span>–</span> Transporte de Personal</li>
+              </ul>
+              <div class="mt-8 text-center text-xs text-white/30 border-t border-white/5 pt-5">Ideal para operaciones pequeñas</div>
+            </div>
+
+            <!-- Pro (destacado) -->
+            <div class="relative bg-gradient-to-b from-iqgreen/10 to-surface border-2 border-iqgreen rounded-3xl p-8 flex flex-col h-full md:-mt-4 md:mb-4 shadow-2xl shadow-iqgreen/20">
+              <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-iqgreen text-navy text-xs font-extrabold px-4 py-1.5 rounded-full flex items-center gap-1 pulse-badge">
+                ★ RECOMENDADO
+              </div>
+              <div class="text-xs font-bold tracking-wide text-iqgreen uppercase mb-3 mt-2">RouteIQ Pro</div>
+              <div class="flex items-baseline gap-1 mb-1">
+                <span class="text-4xl font-extrabold">$8,000</span>
+                <span class="text-white/40 text-sm">MXN/mes</span>
+              </div>
+              <div class="text-xs text-white/40 mb-3">Usuarios ilimitados</div>
+              <div class="inline-flex items-center gap-1.5 bg-iqamber/15 border border-iqamber/30 text-iqamber text-xs font-bold px-3 py-1.5 rounded-full mb-6 w-fit">
+                🎁 3 meses de prueba totalmente gratis
+              </div>
+              <ul class="space-y-3 text-sm text-white/70 flex-1">
+                <li class="flex gap-2"><span class="text-iqgreen">✓</span> Todo lo del Plan Básico</li>
+                <li class="flex gap-2"><span class="text-iqgreen">✓</span> <span class="font-semibold text-white">Usuarios ilimitados</span></li>
+                <li class="flex gap-2"><span class="text-iqgreen">✓</span> Flujo completo de "Otros" y Transporte de Personal</li>
+                <li class="flex gap-2"><span class="text-iqgreen">✓</span> KPIs e indicadores completos</li>
+                <li class="flex gap-2"><span class="text-iqgreen">✓</span> Cronograma Gantt 24h y control de flota</li>
+              </ul>
+              <a href="#" onclick="return false;" class="mt-8 block text-center bg-iqgreen text-navy font-extrabold text-sm py-3.5 rounded-xl hover:bg-white transition-colors">Elegir RouteIQ Pro</a>
+            </div>
+
+            <!-- Empresarial -->
+            <div class="bg-surface border border-border rounded-3xl p-8 flex flex-col h-full">
+              <div class="text-xs font-bold tracking-wide text-white/40 uppercase mb-3">Plan Empresarial</div>
+              <div class="flex items-baseline gap-1 mb-1">
+                <span class="text-4xl font-extrabold">$15,000</span>
+                <span class="text-white/40 text-sm">MXN/mes</span>
+              </div>
+              <div class="text-xs text-white/40 mb-6">Para redes multi-hospital</div>
+              <ul class="space-y-3 text-sm text-white/60 flex-1">
+                <li class="flex gap-2"><span class="text-iqgreen">✓</span> Todo lo del Plan Pro</li>
+                <li class="flex gap-2"><span class="text-iqgreen">✓</span> Múltiples sedes / hospitales</li>
+                <li class="flex gap-2"><span class="text-iqgreen">✓</span> Reportes consolidados entre sedes</li>
+                <li class="flex gap-2"><span class="text-iqgreen">✓</span> Soporte prioritario dedicado</li>
+              </ul>
+              <div class="mt-8 text-center text-xs text-white/30 border-t border-white/5 pt-5">Ideal para grupos hospitalarios</div>
+            </div>
+          </div>
+
+          <div class="text-center mt-8">
+            <button onclick="document.getElementById('flipCard').classList.toggle('flipped')" class="text-xs text-white/40 hover:text-iqgreen transition-colors inline-flex items-center gap-1.5">
+              🖱️ Pasa el cursor o haz clic aquí para ver el desglose de valor
+            </button>
+          </div>
+        </div>
+
+        <!-- REVERSO: desglose de valor -->
+        <div class="flip-face flip-back">
+          <div class="h-full bg-gradient-to-b from-surface2 to-surface border border-iqgreen/30 rounded-3xl p-10 sm:p-14 flex flex-col justify-center">
+            <div class="text-center mb-10">
+              <div class="text-iqgreen font-bold text-xs tracking-[3px] uppercase mb-3">¿Por qué $8,000 MXN/mes?</div>
+              <h3 class="text-2xl sm:text-3xl font-extrabold">El desglose de valor</h3>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto w-full">
+              <div class="flex gap-4 bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+                <div class="text-2xl">⚙️</div>
+                <div>
+                  <div class="font-bold text-sm mb-1">Desarrollo especializado</div>
+                  <div class="text-xs text-white/50 leading-relaxed">360+ horas de ingeniería a la medida — más de <span class="text-iqgreen font-semibold">$160,000 MXN</span> en desarrollo que el hospital se ahorra por completo.</div>
+                </div>
+              </div>
+              <div class="flex gap-4 bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+                <div class="text-2xl">☁️</div>
+                <div>
+                  <div class="font-bold text-sm mb-1">Infraestructura Cloud</div>
+                  <div class="text-xs text-white/50 leading-relaxed">Firebase en tiempo real, hosting, CDN global y disponibilidad continua — sin que TI del hospital administre un solo servidor.</div>
+                </div>
+              </div>
+              <div class="flex gap-4 bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+                <div class="text-2xl">🤖</div>
+                <div>
+                  <div class="font-bold text-sm mb-1">IA y mejora continua</div>
+                  <div class="text-xs text-white/50 leading-relaxed">Herramientas de desarrollo asistido por IA y mantenimiento constante de la plataforma, evolucionando junto con la operación del hospital.</div>
+                </div>
+              </div>
+              <div class="flex gap-4 bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+                <div class="text-2xl">🛠️</div>
+                <div>
+                  <div class="font-bold text-sm mb-1">Soporte 24/7</div>
+                  <div class="text-xs text-white/50 leading-relaxed">Soporte técnico preventivo y correctivo incluido, todos los días del año.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-center mt-10">
+              <p class="text-lg sm:text-xl font-bold text-white/90 italic">"Un traje logístico de alta costura,<br class="hidden sm:block"> al costo de una licencia mensual."</p>
+              <button onclick="document.getElementById('flipCard').classList.toggle('flipped')" class="mt-6 text-xs text-white/40 hover:text-iqgreen transition-colors">← Volver a los planes</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ CIERRE ══════════ -->
+<section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  <div class="float text-5xl mb-6">🚀</div>
+  <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">Llevemos la mensajería del<br>Hospital Santander al siguiente nivel</h2>
+  <p class="text-white/50 max-w-xl mx-auto mb-10">RouteIQ ya está construido, probado y listo para operar. La decisión de hoy es qué tan rápido queremos dejar atrás el WhatsApp.</p>
+  <a href="#planes" class="inline-flex items-center gap-2.5 bg-iqgreen text-navy font-bold text-base px-8 py-4 rounded-2xl shadow-2xl shadow-iqgreen/30 hover:scale-105 hover:bg-white transition-all">
+    Empezar con RouteIQ Pro →
+  </a>
+</section>
+
+<footer class="border-t border-border py-10 px-6 text-center text-white/30 text-xs">
+  <div class="font-bold text-white/50 mb-1">Route<span class="text-iqgreen">IQ</span> — Smart Dispatch Platform</div>
+  Propuesta preparada para la Dirección del Hospital Santander
+</footer>
+
+</body>
+</html>

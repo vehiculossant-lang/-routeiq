@@ -3546,6 +3546,13 @@ async function markCode(solId,code){
   if(code==='58'){upd.status='en_proceso';}
   await updateDoc(doc(window.db,'solicitudes',solId),upd);
   showToast(code==='58'?'🛵 Marcado en ruta':'52 Enterado registrado');
+  const sol=APP.solicitudes.find(s=>s.id===solId);
+  enviarWebhookRouteIQ('vuelta_mensajeria',{
+    folio:sol?.folio||solId, fecha:new Date().toISOString().slice(0,10),
+    hora:sol?.hora||'', area:sol?.area||'', responsable:sol?.mensajeroNombre||APP.user?.name||'',
+    motivo:sol?.necesidad||'', estatus:upd.status||('codigo_'+code),
+    urgente:sol?.prioridad==='alta'?'Sí':'No', observaciones:sol?.observaciones||'',
+  });
 }
 
 // ── Resultado real de la vuelta (al cerrar con 59) ──
@@ -3605,6 +3612,13 @@ async function confirmResultadoVuelta(){
     resultado, resultadoNota:nota
   };
   await updateDoc(doc(window.db,'solicitudes',solId),upd);
+  const sol=APP.solicitudes.find(s=>s.id===solId);
+  enviarWebhookRouteIQ('vuelta_mensajeria',{
+    folio:sol?.folio||solId, fecha:new Date().toISOString().slice(0,10),
+    hora:sol?.hora||'', area:sol?.area||'', responsable:sol?.mensajeroNombre||APP.user?.name||'',
+    motivo:sol?.necesidad||'', estatus:resultado,
+    urgente:sol?.prioridad==='alta'?'Sí':'No', observaciones:nota||sol?.observaciones||'',
+  });
   // Remove from agenda
   if(APP.user){
     const agenda=(APP.agendas[APP.user.id]||[]).filter(v=>v.folio!==solId);
@@ -3758,6 +3772,14 @@ async function saveVehicle(){
         timestamp: serverTimestamp()
       });
       movId=docRef.id; // guardar ID para regreso directo sin query
+      enviarWebhookRouteIQ('vehiculo_salida',{
+        folio:folioVeh, fecha:hoy, hora:horaEntrada,
+        area:'Mensajero', responsable:APP.user?APP.user.name:'—',
+        vehiculo:(v?v.nombre:mvSelectedPlacas)+' · '+mvSelectedPlacas,
+        motivo:'Turno asignado', km_salida:kmSalida,
+        gasolina_salida:GAS_LABELS[gasSalida]||gasSalida||'',
+        estatus:'fuera', urgente:'No', observaciones:'',
+      });
     }catch(e){ showToast('⚠️ Sin conexión a flota — verifica Firestore'); }
   }
 
@@ -3857,6 +3879,15 @@ async function saveBitacora(){
   if(!APP.user)return;
   const data={mensajeroId:APP.user.id,mensajeroNombre:APP.user.name,vehiculo:document.getElementById('bVehiculo').value,placas:document.getElementById('bPlacas').value.toUpperCase(),kmSalida:document.getElementById('bKmSal').value,kmLlegada:document.getElementById('bKmLleg').value,horaEntrada:document.getElementById('bHrIn').value,horaSalida:document.getElementById('bHrOut').value,incidencias:document.getElementById('bIncidencias').value,resumen:document.getElementById('bResumen').value,fecha:new Date().toISOString().slice(0,10)};
   if(window.db&&window.fbFns){const{collection,addDoc}=window.fbFns;await addDoc(collection(window.db,'bitacoras'),data);}
+  enviarWebhookRouteIQ('bitacora_mensajero',{
+    fecha:data.fecha, hora:data.horaSalida||data.horaEntrada||'',
+    responsable:data.mensajeroNombre,
+    vehiculo:(data.vehiculo||'')+' · '+(data.placas||''),
+    motivo:data.resumen||'', km_salida:data.kmSalida, km_regreso:data.kmLlegada,
+    km_recorridos:calcKmRecorridos(data.kmSalida,data.kmLlegada),
+    estatus:'registrada', urgente:data.incidencias?'Sí':'No',
+    observaciones:data.incidencias||'',
+  });
   showToast('✅ Bitácora guardada');
 }
 
@@ -4201,6 +4232,44 @@ function openModal(id){document.getElementById(id).classList.add('open');if(id==
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function showPinErr(id,msg){const el=document.getElementById(id);el.textContent=msg;el.style.display='block';}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+
+// ── WEBHOOK POWER AUTOMATE ──
+// Envía cada evento de bitácora / salida-regreso de vehículo / vuelta de
+// mensajería a /api/webhook (proxy serverless que reenvía a Power Automate —
+// ver api/webhook.js). Fire-and-forget: nunca bloquea ni rompe el flujo
+// principal de la app si Power Automate está caído o tarda.
+const RIQ_WEBHOOK_ENDPOINT = '/api/webhook';
+function enviarWebhookRouteIQ(tipoRegistro, campos){
+  const payload = {
+    folio: campos.folio||'',
+    tipo_registro: tipoRegistro,
+    fecha: campos.fecha||new Date().toISOString().slice(0,10),
+    hora: campos.hora||'',
+    area: campos.area||'',
+    responsable: campos.responsable||'',
+    vehiculo: campos.vehiculo||'',
+    motivo: campos.motivo||'',
+    km_salida: campos.km_salida||'',
+    km_regreso: campos.km_regreso||'',
+    km_recorridos: campos.km_recorridos||'',
+    gasolina_salida: campos.gasolina_salida||'',
+    gasolina_regreso: campos.gasolina_regreso||'',
+    estatus: campos.estatus||'',
+    urgente: campos.urgente||'',
+    observaciones: campos.observaciones||'',
+  };
+  fetch(RIQ_WEBHOOK_ENDPOINT,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload),
+  }).catch(e=>console.error('Webhook Power Automate:',e));
+}
+function calcKmRecorridos(salida,regreso){
+  const s=parseFloat(String(salida).replace(/,/g,''));
+  const r=parseFloat(String(regreso).replace(/,/g,''));
+  if(isNaN(s)||isNaN(r))return'';
+  return String(Math.round(r-s));
+}
 
 
 // ══════════════════════════════════════════════════════════
@@ -5140,7 +5209,12 @@ async function sendSolicitud(){
       transporte:APP.area?.id==='transporte'?collectTransporte():null,
       timestamp:serverTimestamp(), tiempoCreado:new Date().toISOString(),
       turno:getCurrentShift(), fechaProgramada:esFutura?fecha:null,
-    }).catch(e=>console.error('Firebase save error:',e));
+    }).then(()=>enviarWebhookRouteIQ('vuelta_mensajeria',{
+      folio, fecha:esFutura?fecha:new Date().toISOString().slice(0,10), hora,
+      area:APP.area?.name||'', responsable:pendienteAsignar?'PENDIENTE DE ASIGNAR':mName,
+      motivo:necesidad, estatus:'pendiente',
+      urgente:APP.prioridad==='alta'?'Sí':'No', observaciones:obs||'',
+    })).catch(e=>console.error('Firebase save error:',e));
     // Future solicitudes appear in mensajero panel via solicitudes collection
     // No need to duplicate as evento
   }
@@ -7791,6 +7865,14 @@ async function vGuardarReserva(){
   closeModal('vReservaModal');
 
   if(inmediato){
+    enviarWebhookRouteIQ('vehiculo_salida',{
+      folio:folioVeh, fecha:fechaUso, hora:horaInicio,
+      area:areaUsuario, responsable:usuario,
+      vehiculo:(v?v.nombre:'')+' · '+vReservaPlacas,
+      motivo, km_salida:kmSalida,
+      gasolina_salida:GAS_LABELS[gasSalida]||gasSalida||'',
+      estatus:'fuera', urgente:'No', observaciones:'',
+    });
     vMostrarFolioSalidaModal({folioVeh,vehiculoNombre:v?v.nombre:'',placas:vReservaPlacas,usuario,areaUsuario,motivo,horaInicio,horaRegreso,kmSalida,gasSalida,gasSalidaMotivo});
   } else {
     showToast('📅 Reserva guardada — ya aparece en el cronograma de vehículos');
@@ -7825,6 +7907,14 @@ async function vConfirmarIniciarSalida(){
   const salidaAt=new Date().toISOString();
   await updateDoc(doc(window.db,'flotaMovimientos',_vIniciarSalidaMovId),{
     folioVeh,kmSalida,gasSalida,gasSalidaMotivo,salidaAt,estado:'fuera'
+  });
+  enviarWebhookRouteIQ('vehiculo_salida',{
+    folio:folioVeh, fecha:d.fechaUso||new Date().toISOString().slice(0,10),
+    hora:salidaAt.slice(11,16), area:d.areaUsuario||'', responsable:d.usuario||'',
+    vehiculo:(d.vehiculo||'')+' · '+(d.placas||''),
+    motivo:d.motivo||'', km_salida:kmSalida,
+    gasolina_salida:GAS_LABELS[gasSalida]||gasSalida||'',
+    estatus:'fuera', urgente:'No', observaciones:'',
   });
   closeModal('vIniciarSalidaModal');
   vMostrarFolioSalidaModal({
@@ -7930,6 +8020,16 @@ async function vGuardarRegreso(){
   });
   // WhatsApp regreso a guardias — copiar + abrir grupo
   const d=_vRegresoData||{};
+  enviarWebhookRouteIQ('vehiculo_regreso',{
+    folio:d.folioVeh||'', fecha:d.fechaUso||new Date().toISOString().slice(0,10),
+    hora:regresoAt.slice(11,16), area:d.areaUsuario||'', responsable:d.usuario||'',
+    vehiculo:(d.vehiculo||'')+' · '+(d.placas||''),
+    motivo:d.motivo||'', km_salida:d.kmSalida||'', km_regreso:kmRegreso,
+    km_recorridos:calcKmRecorridos(d.kmSalida,kmRegreso),
+    gasolina_salida:GAS_LABELS[d.gasSalida]||d.gasSalida||'',
+    gasolina_regreso:GAS_LABELS[gasRegreso]||gasRegreso||'',
+    estatus:'regresado', urgente:'No', observaciones:obs,
+  });
   const gas=GAS_LABELS[gasRegreso]||gasRegreso||'—';
   const horaReg=new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   const delta2=(!isNaN(parseFloat(kmRegreso))&&!isNaN(parseFloat(d.kmSalida)))?
@@ -8013,6 +8113,17 @@ async function vLiberarUnidadAdmin(movId){
     gasRegresoMotivo:d.gasRegresoMotivo||'Liberación administrativa — no verificado',
     cerradoPorAdmin:true,adminQueLibero:adminNombre,
     observaciones:(d.observaciones?d.observaciones+' · ':'')+'Liberado por administración ('+adminNombre+')'
+  });
+  enviarWebhookRouteIQ('vehiculo_regreso',{
+    folio:d.folioVeh||'', fecha:d.fechaUso||new Date().toISOString().slice(0,10),
+    hora:regresoAt.slice(11,16), area:d.areaUsuario||'', responsable:d.usuario||'',
+    vehiculo:nombreVeh+' · '+d.placas,
+    motivo:d.motivo||'', km_salida:d.kmSalida||'', km_regreso:d.kmRegreso||'N/A',
+    km_recorridos:calcKmRecorridos(d.kmSalida,d.kmRegreso),
+    gasolina_salida:GAS_LABELS[d.gasSalida]||d.gasSalida||'',
+    gasolina_regreso:'no_verificado',
+    estatus:'regresado (liberación admin)', urgente:'No',
+    observaciones:'Liberado por administración ('+adminNombre+')',
   });
   const horaCierre=new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   const msgLiberacion=`🔓 *LIBERACIÓN ADMINISTRATIVA — RouteIQ*\n`
