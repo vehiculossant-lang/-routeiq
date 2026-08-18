@@ -1176,6 +1176,10 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
               <div class="cron-leyenda-text"><span class="cron-leyenda-name">Víctor — en vuelta (gris)</span><span class="cron-leyenda-sub">Área · Solicitante · Prioridad · Duración estimada</span></div>
             </div>
             <div class="cron-leyenda-item">
+              <div class="cron-leyenda-box" style="background:#06B6D4;"><span style="font-size:9px;color:white;font-weight:700;">Área</span></div>
+              <div class="cron-leyenda-text"><span class="cron-leyenda-name">Ebert — en vuelta (cian)</span><span class="cron-leyenda-sub">Área · Solicitante · Prioridad · Duración estimada</span></div>
+            </div>
+            <div class="cron-leyenda-item">
               <div class="cron-leyenda-box" style="background:rgba(255,255,255,0.06);border:1.5px dashed rgba(255,255,255,0.25);">🍽</div>
               <div class="cron-leyenda-text"><span class="cron-leyenda-name">▨ Alimentos</span><span class="cron-leyenda-sub">Mensajero en descanso para comer — no disponible</span></div>
             </div>
@@ -1357,6 +1361,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           </optgroup>
           <optgroup label="🌙 Turno Nocturno">
             <option value="victor">Víctor · 7pm-6am</option>
+            <option value="ebert">Ebert · 7pm-6am</option>
           </optgroup>
         </select>
         <div class="pin-dots">
@@ -1778,11 +1783,10 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
               <div class="field-label">Área</div>
               <select class="field-input" id="histArea">
                 <option value="">Todas las áreas</option>
-                <option value="Paquetería">Paquetería</option>
                 <option value="Compras">Compras</option>
                 <option value="Laboratorio">Laboratorio</option>
-                <option value="Facturas">Facturas</option>
-                <option value="Resultados Médicos">Resultados Médicos</option>
+                <option value="Cuentas por Cobrar">Cuentas por Cobrar</option>
+                <option value="Exámenes Médicos">Exámenes Médicos</option>
                 <option value="MMS">MMS</option>
                 <option value="RH">RH</option>
                 <option value="Consulta Externa">Consulta Externa</option>
@@ -1798,8 +1802,8 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
                 <option value="ivan">Iván</option>
                 <option value="moises">Moisés</option>
                 <option value="pedro">Pedro</option>
-                <option value="hugo">Hugo</option>
                 <option value="victor">Víctor</option>
+                <option value="ebert">Ebert</option>
               </select>
             </div>
           </div>
@@ -1880,8 +1884,8 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
                 <option value="ivan">Iván</option>
                 <option value="moises">Moisés</option>
                 <option value="pedro">Pedro</option>
-                <option value="hugo">Hugo</option>
                 <option value="victor">Víctor</option>
+                <option value="ebert">Ebert</option>
               </select>
             </div>
           </div>
@@ -1915,8 +1919,8 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           <div class="field-group"><div class="field-label">PIN Moisés</div><input class="field-input" type="password" id="cfgPinMoises" placeholder="••••" maxlength="4"></div>
           <div class="field-group"><div class="field-label">PIN Pedro</div><input class="field-input" type="password" id="cfgPinPedro" placeholder="••••" maxlength="4"></div>
           <div class="section-label" style="margin-top:8px;">🌙 Turno nocturno</div>
-          <div class="field-group"><div class="field-label">PIN Hugo</div><input class="field-input" type="password" id="cfgPinHugo" placeholder="••••" maxlength="4"></div>
           <div class="field-group"><div class="field-label">PIN Víctor</div><input class="field-input" type="password" id="cfgPinVictor" placeholder="••••" maxlength="4"></div>
+          <div class="field-group"><div class="field-label">PIN Ebert</div><input class="field-input" type="password" id="cfgPinEbert" placeholder="••••" maxlength="4"></div>
         </div>
         <div class="cfg-section">
           <div class="section-label">Links de WhatsApp</div>
@@ -1935,25 +1939,6 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           <div class="section-label">Acceso por área — Usuarios autorizados</div>
           <p style="font-size:11px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">Cada área tiene 2 usuarios autorizados. Solo ellos pueden generar solicitudes. El PIN debe ser el número de empleado.</p>
 
-          <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Paquetería</div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_paqueteria_u1_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_paqueteria_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_paqueteria_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 2</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_paqueteria_u2_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_paqueteria_u2_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_paqueteria_u2_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-          </div>
           <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
             <div class="section-label" style="margin-bottom:10px;font-size:11px;">Compras</div>
             <div style="margin-bottom:8px;">
@@ -1993,7 +1978,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
             </div>
           </div>
           <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Facturas</div>
+            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Cuentas por Cobrar</div>
             <div style="margin-bottom:8px;">
               <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
               <div class="two-col" style="gap:8px;margin-bottom:6px;">
@@ -2012,7 +1997,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
             </div>
           </div>
           <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Resultados Médicos</div>
+            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Exámenes Médicos</div>
             <div style="margin-bottom:8px;">
               <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
               <div class="two-col" style="gap:8px;margin-bottom:6px;">
@@ -2423,6 +2408,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           </optgroup>
           <optgroup label="🌙 Turno Nocturno">
             <option value="victor">Víctor</option>
+            <option value="ebert">Ebert</option>
           </optgroup>
         </select>
       </div>
@@ -2586,11 +2572,10 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
 
 <script>
 const AREAS=[
-  {id:'paqueteria',name:'Paquetería',icon:'📦',group:'HES'},
   {id:'compras',name:'Compras',icon:'🛒',group:'HES'},
   {id:'laboratorio',name:'Laboratorio',icon:'🧪',group:'HES'},
-  {id:'facturas',name:'Facturas',icon:'🧾',group:'HES'},
-  {id:'resultados',name:'Resultados Médicos',icon:'📋',group:'HES'},
+  {id:'facturas',name:'Cuentas por Cobrar',icon:'🧾',group:'HES'},
+  {id:'resultados',name:'Exámenes Médicos',icon:'📋',group:'HES'},
   {id:'mms',name:'MMS',icon:'🏢',group:'MMS'},
   {id:'rh',name:'RH',icon:'👥',group:'HES'},
   {id:'consulta',name:'Consulta Externa',icon:'🩺',group:'HES'},
@@ -2606,8 +2591,8 @@ const MENSAJEROS_DATA={
   ivan:  {name:'Iván',   initials:'IV', zone:'Todas las áreas',      pin:'1234', turno:'matutino', inicio:9,  fin:19},
   moises:{name:'Moisés', initials:'MO', zone:'Todas las áreas',      pin:'1234', turno:'matutino', inicio:8,  fin:18},
   pedro: {name:'Pedro',  initials:'PE', zone:'MMS Multiservicios',   pin:'1234', turno:'matutino', inicio:8,  fin:18},
-  hugo:  {name:'Hugo',   initials:'HU', zone:'Turno nocturno',       pin:'1234', turno:'nocturno', inicio:19, fin:6, activo:false},
   victor:{name:'Víctor', initials:'VI', zone:'Turno nocturno',       pin:'1234', turno:'nocturno', inicio:19, fin:6},
+  ebert: {name:'Ebert',  initials:'EB', zone:'Turno nocturno',       pin:'1005', turno:'nocturno', inicio:19, fin:6},
 };
 
 
@@ -2617,7 +2602,7 @@ let APP={
   calYear:new Date().getFullYear(),calMonth:new Date().getMonth(),
   asignarSolId:null,solicitudes:[],eventos:[],
   mensajeroEstatus:{},agendas:{},timers:{},
-  cfgPins:{diana:'9999',ruben:'9999',ivan:'1234',moises:'1234',pedro:'1234',hugo:'1234',victor:'1234'},
+  cfgPins:{diana:'9999',ruben:'9999',ivan:'1234',moises:'1234',pedro:'1234',victor:'1234',ebert:'1005'},
   cfgWa:{HES:'',MMS:'',Tram:''},cfgEmpresa:'',
   unsubSolicitudes:null,unsubEstatus:null,unsubAgendas:null,
   bloqueosAgenda:[],
@@ -2696,7 +2681,7 @@ function updateShiftUI(){
     si.style.borderColor='rgba(61,156,240,0.2)';
     if(sIcon)sIcon.textContent='🌙';
     if(sLabel)sLabel.textContent='Turno nocturno activo';
-    if(sTime)sTime.textContent='Víctor en turno · 7:00pm — 6:00am';
+    if(sTime)sTime.textContent='Víctor · Ebert en turno · 7:00pm — 6:00am';
     if(sBadge){sBadge.className='shift-badge night';sBadge.textContent='🌙 NOCHE';}
   } else if(shift==='overlap'){
     si.style.borderColor='rgba(255,165,2,0.3)';
@@ -4050,7 +4035,7 @@ function renderCal(){
 function calChange(dir){APP.calMonth+=dir;if(APP.calMonth<0){APP.calMonth=11;APP.calYear--;}if(APP.calMonth>11){APP.calMonth=0;APP.calYear++;}renderCal();}
 function renderEventos(){
   const tLabel={evento:'Evento',traslado:'Traslado VIP',descanso:'Descanso (D)',vacaciones:'Vacaciones (V)',comision:'Comisión (C)',guardia:'Guardia (G)'};
-  const mNames={ivan:'Iván',moises:'Moisés',pedro:'Pedro',hugo:'Hugo',victor:'Víctor'};
+  const mNames={ivan:'Iván',moises:'Moisés',pedro:'Pedro',victor:'Víctor',ebert:'Ebert'};
   const sorted=[...APP.eventos].filter(e=>!e.esSolicitud).sort((a,b)=>a.fecha.localeCompare(b.fecha));
   if(!sorted.length){document.getElementById('eventosList').innerHTML='<div class="empty-state"><div class="ei">📅</div><p>Sin eventos programados</p></div>';return;}
   document.getElementById('eventosList').innerHTML=sorted.map(e=>{
@@ -4084,8 +4069,8 @@ function renderIndicadores(){
     {name:'Iván',initials:'IV',color:'#00C896',id:'ivan'},
     {name:'Moisés',initials:'MO',color:'#FFA502',id:'moises'},
     {name:'Pedro',initials:'PE',color:'#3D9CF0',id:'pedro'},
-    {name:'Hugo',initials:'HU',color:'#7C3AED',id:'hugo'},
     {name:'Víctor',initials:'VI',color:'#FF4757',id:'victor'},
+    {name:'Ebert',initials:'EB',color:'#06B6D4',id:'ebert'},
   ];
   const total=APP.solicitudes.length||0;
   const comp=APP.solicitudes.filter(s=>s.status==='completada').length||0;
@@ -4177,8 +4162,8 @@ async function saveCfg(){
     ivan:document.getElementById('cfgPinIvan').value||APP.cfgPins.ivan,
     moises:document.getElementById('cfgPinMoises').value||APP.cfgPins.moises,
     pedro:document.getElementById('cfgPinPedro').value||APP.cfgPins.pedro,
-    hugo:document.getElementById('cfgPinHugo').value||APP.cfgPins.hugo,
     victor:document.getElementById('cfgPinVictor').value||APP.cfgPins.victor,
+    ebert:document.getElementById('cfgPinEbert').value||APP.cfgPins.ebert,
   };
   const wa={HES:document.getElementById('cfgWaHES').value,Tram:document.getElementById('cfgWaTram').value};
   const empresa={nombre:document.getElementById('cfgEmpresa').value};
@@ -4186,7 +4171,7 @@ async function saveCfg(){
   // Save area PINs
   APP.cfgDescansoMins = parseInt(document.getElementById('cfgDescansoMins')?.value)||60;
   const areaPins={};
-  const areaIds=['paqueteria','compras','laboratorio','facturas','resultados','mms','rh','consulta','enfermeria','cafeteria','otros','transporte'];
+  const areaIds=['compras','laboratorio','facturas','resultados','mms','rh','consulta','enfermeria','cafeteria','otros','transporte'];
   areaIds.forEach(id=>{
     areaPins[id]={
       u1_nombre:document.getElementById('area_'+id+'_u1_nombre')?.value.trim()||'',
@@ -6479,8 +6464,8 @@ const CRON_MENSAJEROS = [
   { id:'ivan',   nombre:'Iván',   color:'#10B981', turnoIni:9,  turnoFin:19, turno:'Mat' },
   { id:'moises', nombre:'Moisés', color:'#3B82F6', turnoIni:8,  turnoFin:18, turno:'Mat' },
   { id:'pedro',  nombre:'Pedro',  color:'#F59E0B', turnoIni:8,  turnoFin:18, turno:'Mat' },
-  { id:'hugo',   nombre:'Hugo',   color:'#8B5CF6', turnoIni:19, turnoFin:30, turno:'Noc' },
-  { id:'victor', nombre:'Víctor', color:'#94A3B8', turnoIni:19, turnoFin:30, turno:'Noc' }
+  { id:'victor', nombre:'Víctor', color:'#94A3B8', turnoIni:19, turnoFin:30, turno:'Noc' },
+  { id:'ebert',  nombre:'Ebert',  color:'#06B6D4', turnoIni:19, turnoFin:30, turno:'Noc' }
 ];
 
 // ── Estado global del cronograma ─────────────────
