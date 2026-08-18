@@ -30,7 +30,13 @@ module.exports = async function handler(req, res) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req.body || {}),
     });
-    res.status(upstream.status).json({ ok: upstream.ok });
+    if (!upstream.ok) {
+      const bodyText = await upstream.text().catch(() => '');
+      console.error('Power Automate respondió', upstream.status, bodyText);
+      res.status(upstream.status).json({ ok: false, upstreamStatus: upstream.status, upstreamBody: bodyText });
+      return;
+    }
+    res.status(upstream.status).json({ ok: true });
   } catch (e) {
     console.error('Error reenviando a Power Automate:', e);
     res.status(502).json({ error: 'Upstream request failed' });
