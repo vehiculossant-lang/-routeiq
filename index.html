@@ -8237,6 +8237,10 @@ async function renderCronVeh(){
 
     // Fuera: solo mostrar el más reciente — los viejos se eliminan del cronograma
     if(estado==='fuera'){
+      // 'fuera' sin salida física registrada (salidaAt) no cuenta como salida real
+      // — se muestra como Reservado en vez de En uso.
+      if(!mov.salidaAt)
+        return{bg:'rgba(245,158,11,0.18)',border:'var(--amber)',text:'var(--amber)',label:'🟡 Reservado',dimmed:false};
       const masReciente=recentByPlacas[mov.placas];
       if(masReciente?.id!==mov.id) return null; // no es el registro activo → no mostrar
       // ¿Regreso vencido?
@@ -8286,11 +8290,10 @@ async function renderCronVeh(){
     if(v.mantenimiento){
       html+=`<div style="position:absolute;top:0;left:2px;right:2px;height:${TOTAL_H}px;background:rgba(245,158,11,0.07);border:1.5px solid rgba(245,158,11,0.3);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--amber);font-weight:700;pointer-events:none;">🔧 En mantenimiento</div>`;
     } else {
-      // Bloques de movimientos — primero los atenuados (detrás), luego los activos (encima)
-      const movsOrdenados=[...vehicleMovs].sort((a,b)=>{
-        const activo=m=>m.estado==='fuera'||m.estado==='reservado';
-        return activo(a)?1:-1; // activos al frente (se pintan después = encima)
-      });
+      // Bloques de movimientos — 'fuera' (En uso) primero/detrás, 'reservado' al final/encima,
+      // para que una reserva sin salida física nunca quede oculta bajo un bloque En uso que se traslape.
+      const prioridadDibujo=m=>m.estado==='reservado'?1:0;
+      const movsOrdenados=[...vehicleMovs].sort((a,b)=>prioridadDibujo(a)-prioridadDibujo(b));
       movsOrdenados.forEach(mov=>{
         const col=movColor(mov);
         if(!col) return;
