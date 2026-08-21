@@ -7373,6 +7373,10 @@ function vListenMovs(){
   vUnsubMovs=onSnapshot(q,snap=>{
     vMovs=snap.docs.map(d=>({id:d.id,...d.data()}));
     vRenderPanel();
+    // El Cronograma no se re-renderiza solo — si está visible, refrescarlo también
+    // para que no se quede pintando un estatus (ej. En uso) que ya cambió en Firestore.
+    if(document.getElementById('screen-vehiculos-cron')?.classList.contains('active'))
+      renderCronVeh();
   },err=>{
     console.error('flotaMovimientos:',err);
     showToast('⚠️ Sin conexión a bitácora — revisa reglas Firestore');
