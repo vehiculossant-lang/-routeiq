@@ -8224,13 +8224,6 @@ async function renderCronVeh(){
     return{top,height};
   }
 
-  // Precomputa el registro más reciente por vehículo (movs ya viene ordenado desc por timestamp)
-  // Sirve para saber si un 'fuera' viejo ya fue cerrado con un 'regresado' más reciente
-  const recentByPlacas={};
-  movs.forEach(m=>{
-    if(!recentByPlacas[m.placas]) recentByPlacas[m.placas]=m;
-  });
-
   // Determinar color de cada movimiento
   function movColor(mov){
     const estado=mov.estado||'reservado';
@@ -8239,14 +8232,19 @@ async function renderCronVeh(){
     // Regresado: no mostrar (queda en WhatsApp y bitácora)
     if(estado==='regresado') return null;
 
-    // Fuera: solo mostrar el más reciente — los viejos se eliminan del cronograma
+    // Fuera: usar vMovAbierto() — la MISMA función que decide "En uso" en
+    // Control de Flota — como única autoridad. Un doc 'fuera' huérfano (ej.
+    // un regreso que nunca se cerró) puede seguir en la base con estado
+    // 'fuera' indefinidamente; si ya no es el movimiento vigente de la placa
+    // según vMovAbierto, no se dibuja — así el Cronograma nunca puede
+    // discrepar de Control de Flota sobre si hay una salida física activa.
     if(estado==='fuera'){
+      const abierto=vMovAbierto(mov.placas);
+      if(!abierto||abierto.id!==mov.id) return null; // no es el movimiento vigente → no mostrar
       // 'fuera' sin salida física registrada (salidaAt) no cuenta como salida real
       // — se muestra como Reservado en vez de En uso.
       if(!mov.salidaAt)
         return{bg:'rgba(245,158,11,0.18)',border:'var(--amber)',text:'var(--amber)',label:'🟡 Reservado',dimmed:false};
-      const masReciente=recentByPlacas[mov.placas];
-      if(masReciente?.id!==mov.id) return null; // no es el registro activo → no mostrar
       // ¿Regreso vencido?
       if(mov.horaRegresoEst&&esHoy){
         const[hh,mm]=mov.horaRegresoEst.split(':').map(Number);
