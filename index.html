@@ -212,6 +212,9 @@ body{font-family:var(--font);background:var(--iq-navy);color:var(--text-primary)
 .field-input::placeholder{color:var(--text-muted);}
 textarea.field-input{resize:vertical;min-height:72px;}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.pin-field-wrap{position:relative;}
+.pin-field-wrap .field-input{padding-right:36px;}
+.pin-eye-btn{position:absolute;right:2px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;font-size:15px;padding:6px 8px;line-height:1;color:var(--text-muted);}
 
 /* ── PRIORITY ── */
 .prio-row{display:flex;gap:6px;}
@@ -1912,15 +1915,15 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
         <div class="section-label">Configuración del sistema</div>
         <div class="cfg-section">
           <div class="section-label">PINs de acceso</div>
-          <div class="field-group"><div class="field-label">PIN Diana</div><input class="field-input" type="password" id="cfgPinDiana" placeholder="••••" maxlength="4"></div>
-          <div class="field-group"><div class="field-label">PIN Rubén</div><input class="field-input" type="password" id="cfgPinRuben" placeholder="••••" maxlength="4"></div>
+          <div class="field-group"><div class="field-label">PIN Diana</div><div class="pin-field-wrap"><input class="field-input" type="password" id="cfgPinDiana" placeholder="••••" maxlength="4"><button type="button" class="pin-eye-btn" onclick="togglePinVisibility('cfgPinDiana',this)">👁️</button></div></div>
+          <div class="field-group"><div class="field-label">PIN Rubén</div><div class="pin-field-wrap"><input class="field-input" type="password" id="cfgPinRuben" placeholder="••••" maxlength="4"><button type="button" class="pin-eye-btn" onclick="togglePinVisibility('cfgPinRuben',this)">👁️</button></div></div>
           <div class="section-label" style="margin-top:8px;">PINs mensajeros</div>
-          <div class="field-group"><div class="field-label">PIN Iván</div><input class="field-input" type="password" id="cfgPinIvan" placeholder="••••" maxlength="4"></div>
-          <div class="field-group"><div class="field-label">PIN Moisés</div><input class="field-input" type="password" id="cfgPinMoises" placeholder="••••" maxlength="4"></div>
-          <div class="field-group"><div class="field-label">PIN Pedro</div><input class="field-input" type="password" id="cfgPinPedro" placeholder="••••" maxlength="4"></div>
+          <div class="field-group"><div class="field-label">PIN Iván</div><div class="pin-field-wrap"><input class="field-input" type="password" id="cfgPinIvan" placeholder="••••" maxlength="4"><button type="button" class="pin-eye-btn" onclick="togglePinVisibility('cfgPinIvan',this)">👁️</button></div></div>
+          <div class="field-group"><div class="field-label">PIN Moisés</div><div class="pin-field-wrap"><input class="field-input" type="password" id="cfgPinMoises" placeholder="••••" maxlength="4"><button type="button" class="pin-eye-btn" onclick="togglePinVisibility('cfgPinMoises',this)">👁️</button></div></div>
+          <div class="field-group"><div class="field-label">PIN Pedro</div><div class="pin-field-wrap"><input class="field-input" type="password" id="cfgPinPedro" placeholder="••••" maxlength="4"><button type="button" class="pin-eye-btn" onclick="togglePinVisibility('cfgPinPedro',this)">👁️</button></div></div>
           <div class="section-label" style="margin-top:8px;">🌙 Turno nocturno</div>
-          <div class="field-group"><div class="field-label">PIN Víctor</div><input class="field-input" type="password" id="cfgPinVictor" placeholder="••••" maxlength="4"></div>
-          <div class="field-group"><div class="field-label">PIN Ebert</div><input class="field-input" type="password" id="cfgPinEbert" placeholder="••••" maxlength="4"></div>
+          <div class="field-group"><div class="field-label">PIN Víctor</div><div class="pin-field-wrap"><input class="field-input" type="password" id="cfgPinVictor" placeholder="••••" maxlength="4"><button type="button" class="pin-eye-btn" onclick="togglePinVisibility('cfgPinVictor',this)">👁️</button></div></div>
+          <div class="field-group"><div class="field-label">PIN Ebert</div><div class="pin-field-wrap"><input class="field-input" type="password" id="cfgPinEbert" placeholder="••••" maxlength="4"><button type="button" class="pin-eye-btn" onclick="togglePinVisibility('cfgPinEbert',this)">👁️</button></div></div>
         </div>
         <div class="cfg-section">
           <div class="section-label">Links de WhatsApp</div>
@@ -1936,218 +1939,9 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
 
         <!-- AREA PINS -->
         <div class="cfg-section">
-          <div class="section-label">Acceso por área — Usuarios autorizados</div>
-          <p style="font-size:11px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">Cada área tiene 2 usuarios autorizados. Solo ellos pueden generar solicitudes. El PIN debe ser el número de empleado.</p>
-
-          <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Compras</div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_compras_u1_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_compras_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_compras_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 2</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_compras_u2_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_compras_u2_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_compras_u2_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-          </div>
-          <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Laboratorio</div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_laboratorio_u1_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_laboratorio_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_laboratorio_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 2</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_laboratorio_u2_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_laboratorio_u2_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_laboratorio_u2_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-          </div>
-          <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Cuentas por Cobrar</div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_facturas_u1_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_facturas_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_facturas_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 2</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_facturas_u2_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_facturas_u2_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_facturas_u2_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-          </div>
-          <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Exámenes Médicos</div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_resultados_u1_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_resultados_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_resultados_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 2</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_resultados_u2_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_resultados_u2_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_resultados_u2_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-          </div>
-          <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">MMS</div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_mms_u1_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_mms_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_mms_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 2</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_mms_u2_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_mms_u2_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_mms_u2_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-          </div>
-          <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">RH</div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_rh_u1_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_rh_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_rh_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 2</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_rh_u2_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_rh_u2_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_rh_u2_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-          </div>
-          <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Consulta Externa</div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_consulta_u1_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_consulta_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_consulta_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 2</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_consulta_u2_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_consulta_u2_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_consulta_u2_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-          </div>
-          <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Enfermería</div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_enfermeria_u1_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_enfermeria_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_enfermeria_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 2</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_enfermeria_u2_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_enfermeria_u2_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_enfermeria_u2_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-          </div>
-          <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Cafetería</div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_cafeteria_u1_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_cafeteria_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_cafeteria_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 2</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_cafeteria_u2_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_cafeteria_u2_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_cafeteria_u2_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-          </div>
-          <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Otros</div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_otros_u1_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_otros_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_otros_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 2</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_otros_u2_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_otros_u2_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_otros_u2_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-          </div>
-          <div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">
-            <div class="section-label" style="margin-bottom:10px;font-size:11px;">Transporte de Personal</div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 1</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_transporte_u1_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_transporte_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_transporte_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Usuario 2</div>
-              <div class="two-col" style="gap:8px;margin-bottom:6px;">
-                <input class="field-input" type="text" id="area_transporte_u2_nombre" placeholder="Nombre completo" style="font-size:12px;">
-                <input class="field-input" type="text" id="area_transporte_u2_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;">
-              </div>
-              <input class="field-input" type="text" id="area_transporte_u2_contacto" placeholder="Teléfono / contacto" style="font-size:12px;">
-            </div>
-          </div>
+          <div class="section-label">Acceso por área — Usuario autorizado</div>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">Cada área tiene 1 solo usuario autorizado. Solo él puede generar solicitudes. El PIN debe ser el número de empleado. Se recomienda rotar el PIN cada 60 días.</p>
+          <div id="cfgAreaPinsContainer"></div>
         </div>
                 <button class="btn btn-primary" onclick="saveCfg()">💾 Guardar configuración</button>
         <div style="height:16px;"></div>
@@ -2726,6 +2520,7 @@ function goTab(tab){
     if(tab==='sols')renderAdminSols();
     if(tab==='cal'){renderCal();renderProgramacionesFuturas();}
     if(tab==='indicadores'){renderIndicadores();renderAdminFlota();}
+    if(tab==='cfg')renderCfgFields();
   }
 }
 
@@ -3068,7 +2863,7 @@ function verifyMPin(){
     mPinBuf='';updMDots();return;
   }
   const pin=APP.cfgPins[who]||MENSAJEROS_DATA[who]?.pin||'1234';
-  if(mPinBuf===pin){
+  if(normalizePin(mPinBuf)===normalizePin(pin)){
     mPinIntentos=0;
     APP.user={id:who,...MENSAJEROS_DATA[who]};
     mLoginOk();
@@ -3906,7 +3701,7 @@ function verifyAPin(){
   const who=document.getElementById('aWho').value;
   if(!who){showPinErr('aPinError','⚠️ Selecciona tu nombre');aPinBuf='';updADots();return;}
   const pin=APP.cfgPins[who]||ADMINS_DATA[who]?.pin||'9999';
-  if(aPinBuf===pin){
+  if(normalizePin(aPinBuf)===normalizePin(pin)){
     aPinIntentos=0;
     APP.user={id:who,...ADMINS_DATA[who]};
     aLoginOk();
@@ -4174,7 +3969,7 @@ async function loadConfig(){
   const{doc,getDoc}=window.fbFns;
   try{
     const snap=await getDoc(doc(window.db,'config','pins'));
-    if(snap.exists())Object.assign(APP.cfgPins,snap.data());
+    if(snap.exists())Object.assign(APP.cfgPins,normalizePinMap(snap.data()));
   // Load area PINs
   try{
     const areaSnap = await getDoc(doc(window.db,'config','areaPins'));
@@ -4185,44 +3980,122 @@ async function loadConfig(){
     const snapE=await getDoc(doc(window.db,'config','empresa'));
     if(snapE.exists()){APP.cfgEmpresa=snapE.data().nombre||'';}
   }catch(e){console.log('Config not set');}
+  // Si la pantalla de Configuración ya está abierta (recarga en caliente), refresca los campos
+  const cfgScreen=document.getElementById('screen-admin-cfg');
+  if(cfgScreen&&cfgScreen.classList.contains('active'))renderCfgFields();
 }
+
+// Todos los PINs se guardan/leen como string normalizado — evita el mismatch
+// String vs Number si algún PIN llegó a Firestore con otro tipo.
+function normalizePin(pin){
+  return String(pin==null?'':pin).trim();
+}
+function normalizePinMap(obj){
+  const out={};
+  Object.keys(obj||{}).forEach(k=>{out[k]=normalizePin(obj[k]);});
+  return out;
+}
+
+function togglePinVisibility(inputId,btn){
+  const el=document.getElementById(inputId);
+  if(!el)return;
+  const show=el.type==='password';
+  el.type=show?'text':'password';
+  btn.textContent=show?'🙈':'👁️';
+}
+
+function escAttr(v){
+  return String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Puebla los campos de Configuración con lo que ya está persistido en
+// APP.cfgPins/cfgAreaPins/cfgWa/cfgEmpresa — se llama al cargar config y cada
+// vez que se entra a la pantalla, para que nunca se vea "vacía" habiendo datos guardados.
+function renderCfgFields(){
+  const set=(id,val)=>{const el=document.getElementById(id);if(el)el.value=val||'';};
+  set('cfgPinDiana',APP.cfgPins.diana);
+  set('cfgPinRuben',APP.cfgPins.ruben);
+  set('cfgPinIvan',APP.cfgPins.ivan);
+  set('cfgPinMoises',APP.cfgPins.moises);
+  set('cfgPinPedro',APP.cfgPins.pedro);
+  set('cfgPinVictor',APP.cfgPins.victor);
+  set('cfgPinEbert',APP.cfgPins.ebert);
+  set('cfgWaHES',APP.cfgWa?.HES);
+  set('cfgWaTram',APP.cfgWa?.Tram);
+  set('cfgEmpresa',APP.cfgEmpresa);
+  renderCfgAreaPins();
+}
+
+const CFG_AREA_ROTACION_DIAS=60;
+function renderCfgAreaPins(){
+  const cont=document.getElementById('cfgAreaPinsContainer');
+  if(!cont)return;
+  cont.innerHTML=AREAS.map(a=>{
+    const p=(APP.cfgAreaPins&&APP.cfgAreaPins[a.id])||{};
+    let rotacionHTML='';
+    if(p.lastPinUpdate){
+      const ms=p.lastPinUpdate.toMillis?p.lastPinUpdate.toMillis():(p.lastPinUpdate.seconds?p.lastPinUpdate.seconds*1000:null);
+      if(ms){
+        const dias=Math.floor((Date.now()-ms)/86400000);
+        const restantes=CFG_AREA_ROTACION_DIAS-dias;
+        rotacionHTML='<div style="font-size:9.5px;color:'+(restantes<=0?'var(--red)':'var(--text-muted)')+';margin-top:4px;">'
+          +(restantes<=0?'⚠️ PIN vencido — rótalo':'Último cambio hace '+dias+' día'+(dias===1?'':'s')+' · rotar en '+restantes+' días más')+'</div>';
+      }
+    }
+    return '<div style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;">'
+      +'<div class="section-label" style="margin-bottom:10px;font-size:11px;">'+a.icon+' '+a.name+'</div>'
+      +'<div class="two-col" style="gap:8px;margin-bottom:6px;">'
+      +'<input class="field-input" type="text" id="area_'+a.id+'_u1_nombre" placeholder="Nombre completo" style="font-size:12px;" value="'+escAttr(p.u1_nombre)+'">'
+      +'<div class="pin-field-wrap"><input class="field-input" type="password" id="area_'+a.id+'_u1_pin" placeholder="No. empleado / PIN" maxlength="4" style="font-size:12px;" value="'+escAttr(p.u1_pin)+'"><button type="button" class="pin-eye-btn" onclick="togglePinVisibility(\'area_'+a.id+'_u1_pin\',this)">👁️</button></div>'
+      +'</div>'
+      +'<input class="field-input" type="text" id="area_'+a.id+'_u1_contacto" placeholder="Teléfono / contacto" style="font-size:12px;" value="'+escAttr(p.u1_contacto)+'">'
+      +rotacionHTML
+      +'</div>';
+  }).join('');
+}
+
 async function saveCfg(){
   const pins={
-    diana:document.getElementById('cfgPinDiana').value||APP.cfgPins.diana,
-    ruben:document.getElementById('cfgPinRuben').value||APP.cfgPins.ruben,
-    ivan:document.getElementById('cfgPinIvan').value||APP.cfgPins.ivan,
-    moises:document.getElementById('cfgPinMoises').value||APP.cfgPins.moises,
-    pedro:document.getElementById('cfgPinPedro').value||APP.cfgPins.pedro,
-    victor:document.getElementById('cfgPinVictor').value||APP.cfgPins.victor,
-    ebert:document.getElementById('cfgPinEbert').value||APP.cfgPins.ebert,
+    diana:normalizePin(document.getElementById('cfgPinDiana').value)||APP.cfgPins.diana,
+    ruben:normalizePin(document.getElementById('cfgPinRuben').value)||APP.cfgPins.ruben,
+    ivan:normalizePin(document.getElementById('cfgPinIvan').value)||APP.cfgPins.ivan,
+    moises:normalizePin(document.getElementById('cfgPinMoises').value)||APP.cfgPins.moises,
+    pedro:normalizePin(document.getElementById('cfgPinPedro').value)||APP.cfgPins.pedro,
+    victor:normalizePin(document.getElementById('cfgPinVictor').value)||APP.cfgPins.victor,
+    ebert:normalizePin(document.getElementById('cfgPinEbert').value)||APP.cfgPins.ebert,
   };
   const wa={HES:document.getElementById('cfgWaHES').value,Tram:document.getElementById('cfgWaTram').value};
   const empresa={nombre:document.getElementById('cfgEmpresa').value};
   Object.assign(APP.cfgPins,pins);Object.assign(APP.cfgWa,wa);APP.cfgEmpresa=empresa.nombre;
-  // Save area PINs
+  // Save area PINs — 1 solo usuario/PIN por área. lastPinUpdate solo se
+  // actualiza si el PIN realmente cambió, para poder rastrear su rotación.
   APP.cfgDescansoMins = parseInt(document.getElementById('cfgDescansoMins')?.value)||60;
   const areaPins={};
   const areaIds=['compras','laboratorio','facturas','resultados','mms','rh','consulta','enfermeria','cafeteria','otros','transporte'];
+  const{serverTimestamp}=window.fbFns||{};
   areaIds.forEach(id=>{
-    areaPins[id]={
-      u1_nombre:document.getElementById('area_'+id+'_u1_nombre')?.value.trim()||'',
-      u1_pin:document.getElementById('area_'+id+'_u1_pin')?.value.trim()||'',
-      u1_contacto:document.getElementById('area_'+id+'_u1_contacto')?.value.trim()||'',
-      u2_nombre:document.getElementById('area_'+id+'_u2_nombre')?.value.trim()||'',
-      u2_pin:document.getElementById('area_'+id+'_u2_pin')?.value.trim()||'',
-      u2_contacto:document.getElementById('area_'+id+'_u2_contacto')?.value.trim()||'',
-    };
+    const nombre=document.getElementById('area_'+id+'_u1_nombre')?.value.trim()||'';
+    const pin=normalizePin(document.getElementById('area_'+id+'_u1_pin')?.value||'');
+    const contacto=document.getElementById('area_'+id+'_u1_contacto')?.value.trim()||'';
+    const prev=(APP.cfgAreaPins&&APP.cfgAreaPins[id])||{};
+    const entry={u1_nombre:nombre,u1_pin:pin,u1_contacto:contacto};
+    if(pin&&pin!==normalizePin(prev.u1_pin)&&serverTimestamp){
+      entry.lastPinUpdate=serverTimestamp();
+    }
+    areaPins[id]=entry;
+    APP.cfgAreaPins=APP.cfgAreaPins||{};
+    APP.cfgAreaPins[id]={...prev,...entry};
   });
-  APP.cfgAreaPins = areaPins;
   if(window.db&&window.fbFns){
     const{doc,setDoc}=window.fbFns;
-    setDoc(doc(window.db,'config','areaPins'),areaPins).catch(e=>console.error(e));
-  }
-  if(window.db&&window.fbFns){
-    const{doc,setDoc}=window.fbFns;
-    await setDoc(doc(window.db,'config','pins'),pins);
-    await setDoc(doc(window.db,'config','whatsapp'),wa);
-    await setDoc(doc(window.db,'config','empresa'),empresa);
+    // merge:true en TODOS los documentos de config — un setDoc sin merge
+    // sobrescribe el documento completo y borra cualquier campo no incluido
+    // en este payload (ej. otros PINs, o 'acceso'), que es justo lo que
+    // causaba que la configuración "se borrara" al guardar.
+    setDoc(doc(window.db,'config','areaPins'),areaPins,{merge:true}).catch(e=>console.error(e));
+    await setDoc(doc(window.db,'config','pins'),pins,{merge:true});
+    await setDoc(doc(window.db,'config','whatsapp'),wa,{merge:true});
+    await setDoc(doc(window.db,'config','empresa'),empresa,{merge:true});
   }
   showToast('✅ Configuración guardada');
 }
@@ -5731,7 +5604,7 @@ function accessPinDel(){
 
 function verifyAccessPin(){
   const customPin = (APP && APP.cfgPins && APP.cfgPins.acceso) ? APP.cfgPins.acceso : ACCESS_PIN;
-  if(accessBuf === customPin || accessBuf === ACCESS_PIN){
+  if(normalizePin(accessBuf) === normalizePin(customPin) || normalizePin(accessBuf) === normalizePin(ACCESS_PIN)){
     accessIntentos = 0;
     try{ localStorage.setItem('riq_access', Date.now()); }catch(e){}
     const screen = document.getElementById('accessScreen');
@@ -6410,7 +6283,7 @@ function solicitarAreaPin(areaId){
   const title = document.getElementById('areaPinTitle');
   if(title) title.textContent = area ? area.name : 'Acceso al área';
   const pins = APP.cfgAreaPins?.[areaId];
-  const sinConfig = !pins || (!pins.u1_pin && !pins.u2_pin);
+  const sinConfig = !pins || !pins.u1_pin;
   const subEl = document.getElementById('areaPinSub');
   if(subEl){
     subEl.textContent = sinConfig
@@ -6426,17 +6299,16 @@ function verificarAreaPin(){
     document.getElementById('areaPinError').textContent = '🔒 Bloqueado. Intenta en ' + r + ' min';
     return;
   }
-  const inputPin = areaPinBuf.trim();
+  const inputPin = normalizePin(areaPinBuf);
   if(!inputPin){ document.getElementById('areaPinError').textContent = 'Ingresa tu número de empleado'; return; }
   const pins = APP.cfgAreaPins?.[areaPendingId];
-  const sinConfig = !pins || (!pins.u1_pin && !pins.u2_pin);
+  const sinConfig = !pins || !pins.u1_pin;
   if(sinConfig){
     document.getElementById('areaPinError').textContent = 'Sin acceso configurado. Contacta: 899 122 7489';
     return;
   }
   let matchedUser = null;
-  if(pins.u1_pin && inputPin === pins.u1_pin) matchedUser = {nombre: pins.u1_nombre||'Usuario 1', contacto: pins.u1_contacto};
-  if(pins.u2_pin && inputPin === pins.u2_pin) matchedUser = {nombre: pins.u2_nombre||'Usuario 2', contacto: pins.u2_contacto};
+  if(pins.u1_pin && inputPin === normalizePin(pins.u1_pin)) matchedUser = {nombre: pins.u1_nombre||'Usuario autorizado', contacto: pins.u1_contacto};
   if(matchedUser){
     areaPinIntentos = 0;
     APP.areaUsuario = matchedUser;
