@@ -10,7 +10,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import {
     getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc,
-    query, orderBy, serverTimestamp, setDoc, getDoc, getDocs
+    query, orderBy, where, Timestamp, serverTimestamp, setDoc, getDoc, getDocs
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import {
     getAuth, signInAnonymously, onAuthStateChanged
@@ -31,7 +31,7 @@
 
   window.db = db;
   window.auth = auth;
-  window.fbFns = { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, setDoc, getDoc, getDocs };
+  window.fbFns = { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, where, Timestamp, serverTimestamp, setDoc, getDoc, getDocs };
 
   // Espera a que exista sesión (aunque sea anónima) antes de avisarle al
   // resto de la app que puede leer/escribir Firestore.
@@ -1857,7 +1857,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           <div id="adminFlotaEnUso" style="max-height:350px;overflow-y:auto;"></div>
           <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin:14px 0 6px;">📋 Bitácora de movimientos</div>
           <p style="font-size:10.5px;color:var(--text-muted);margin-bottom:8px;line-height:1.4;">Muestra solo los últimos 15 días. Para movimientos más antiguos usa el buscador de abajo.</p>
-          <div id="adminFlotaBitacora"></div>
+          <div id="adminFlotaBitacora" style="max-height:500px;overflow-y:auto;"></div>
           <button class="btn-excel" style="margin-top:10px;" onclick="vDownloadCSV()">📊 Exportar bitácora (.csv)</button>
           <button class="btn btn-secondary" style="margin-top:8px;" onclick="vDownloadPDF()">📄 Exportar reporte (PDF)</button>
           <button class="btn btn-secondary" style="margin-top:8px;" onclick="vDocsOpen()">📄 Documentos de la flota</button>
@@ -7301,6 +7301,14 @@ function vFmtHora(iso){
   const d=new Date(iso);
   return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
 }
+// Badge de estado para bitácora/historial. Un cierre administrativo
+// (liberación manual o purga masiva) no verificó km/gasolina con el usuario
+// — se distingue de un regreso normal para no confundir al operador.
+function vEstadoBadge(m,estLabel){
+  if(m.estado==='regresado'&&m.cerradoPorAdmin)
+    return m.purgaMasiva?['CERRADO ADMIN · PURGA','var(--blue)']:['CERRADO ADMIN','var(--blue)'];
+  return estLabel[m.estado]||[m.estado||'—','var(--text-muted)'];
+}
 
 // ── ALERTAS DOCUMENTOS ──
 function vAlertasDocs(placas){
@@ -7393,12 +7401,27 @@ async function renderAdminFlota(){
 
   await vCargarFlotaCfg();
 
-  // Carga puntual (no listener): movimientos + documentos
+  // Carga puntual (no listener): movimientos + documentos.
+  // Dos queries en vez de traer toda la colección:
+  // 1) últimos 15 días (un solo where, mismo campo que el orderBy — no
+  //    requiere índice compuesto) para la Bitácora.
+  // 2) todo lo que siga 'fuera' sin importar su antigüedad (un solo where,
+  //    sin orderBy) — así "Vehículos en uso ahora" y la purga masiva siguen
+  //    viendo huérfanos viejos aunque ya no entren en los últimos 15 días.
+  // El resto del filtrado/orden se hace en memoria, como ya se hace en todo
+  // el resto de la app.
   if(window.db&&window.fbFns){
     try{
-      const{collection,getDocs,query,orderBy,doc,getDoc}=window.fbFns;
-      const snap=await getDocs(query(collection(window.db,'flotaMovimientos'),orderBy('timestamp','desc')));
-      vMovs=snap.docs.map(d=>({id:d.id,...d.data()}));
+      const{collection,getDocs,query,orderBy,where,Timestamp,doc,getDoc}=window.fbFns;
+      const cutoffTs=Timestamp.fromDate(new Date(Date.now()-15*24*60*60*1000));
+      const[snapRecientes,snapFuera]=await Promise.all([
+        getDocs(query(collection(window.db,'flotaMovimientos'),where('timestamp','>=',cutoffTs),orderBy('timestamp','desc'))),
+        getDocs(query(collection(window.db,'flotaMovimientos'),where('estado','==','fuera'))),
+      ]);
+      const porId={};
+      snapRecientes.docs.forEach(d=>{porId[d.id]={id:d.id,...d.data()};});
+      snapFuera.docs.forEach(d=>{porId[d.id]={id:d.id,...d.data()};});
+      vMovs=Object.values(porId).sort((a,b)=>(b.timestamp?.seconds||0)-(a.timestamp?.seconds||0));
       const dSnap=await getDoc(doc(window.db,'flotaDocs','main'));
       vDocs=dSnap.exists()?dSnap.data():{};
     }catch(e){console.error('renderAdminFlota:',e);}
@@ -7488,7 +7511,7 @@ async function renderAdminFlota(){
     ?'<div class="empty-state"><div class="ei">📭</div><p>Sin movimientos registrados</p></div>'
     :ultimos.map(m=>{
       const fl=FLOTA.find(f=>f.placas===m.placas);
-      const est=estLabel[m.estado]||[m.estado||'—','var(--text-muted)'];
+      const est=vEstadoBadge(m,estLabel);
       return '<div style="background:var(--iq-surface);border:1px solid var(--iq-border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px;font-size:12px;'+(m.estado==='cancelada'?'opacity:0.5;':'')+'">'
         +'<div style="display:flex;justify-content:space-between;"><strong>'+(fl?fl.nombre:m.placas)+'</strong>'
         +'<span style="color:'+est[1]+';font-weight:700;">'+est[0]+'</span></div>'
@@ -7536,7 +7559,7 @@ async function buscarHistorialVehiculos(){
     const header = '<div style="font-size:11px;color:var(--iq-green);font-weight:700;margin-bottom:8px;">'+all.length+' resultado'+(all.length>1?'s':'')+'</div>';
     const rows = all.slice(0,50).map(m=>{
       const fl = FLOTA.find(f=>f.placas===m.placas);
-      const est = estLabel[m.estado]||[m.estado||'—','var(--text-muted)'];
+      const est = vEstadoBadge(m,estLabel);
       return '<div style="background:var(--iq-surface);border:1px solid var(--iq-border);border-radius:var(--radius-xs);padding:9px 12px;margin-bottom:6px;">'
         +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
         +'<span style="font-size:12px;font-weight:700;flex:1;">🚗 '+(fl?fl.nombre:(m.placas||'—'))+'</span>'
