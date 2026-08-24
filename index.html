@@ -1849,9 +1849,12 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.4;">Edita las placas cuando haya cambio de documentos, y activa "En mantenimiento" para bloquear la unidad en el panel público.</p>
           <div id="adminFlotaEditor"></div>
           <button class="btn btn-primary" style="margin-top:8px;" onclick="vGuardarFlotaCfg()">💾 Guardar placas y mantenimiento</button>
-          <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin:14px 0 6px;">🔓 Vehículos en uso ahora</div>
-          <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.4;">Liberación administrativa: usa esto solo si el usuario no puede registrar su propio regreso (emergencia, cambio de turno, etc). Se notifica a guardias que el cierre lo hizo Coordinación.</p>
-          <div id="adminFlotaEnUso"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:14px 0 6px;">
+            <div style="font-size:12px;font-weight:700;color:var(--text-secondary);">🔓 Vehículos en uso ahora</div>
+            <button id="adminFlotaPurgaBtn" onclick="vPurgarSalidasAntiguas()" style="font-size:10.5px;font-weight:700;padding:6px 10px;border-radius:7px;cursor:pointer;white-space:nowrap;border:1px solid var(--iq-border2);background:var(--iq-surface2);color:var(--text-secondary);">🧹 Limpiar salidas antiguas (&gt;24h)</button>
+          </div>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.4;">Liberación administrativa: usa esto solo si el usuario no puede registrar su propio regreso (emergencia, cambio de turno, etc). Se notifica a guardias que el cierre lo hizo Coordinación. Solo se listan salidas de las últimas 24h — las más antiguas se limpian con el botón de arriba.</p>
+          <div id="adminFlotaEnUso" style="max-height:350px;overflow-y:auto;"></div>
           <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin:14px 0 6px;">📋 Bitácora de movimientos</div>
           <p style="font-size:10.5px;color:var(--text-muted);margin-bottom:8px;line-height:1.4;">Muestra solo los últimos 15 días. Para movimientos más antiguos usa el buscador de abajo.</p>
           <div id="adminFlotaBitacora"></div>
@@ -3541,6 +3544,13 @@ async function saveVehicle(){
   // Verificar que no esté en uso en este momento
   if(vMovAbierto && vMovAbierto(mvSelectedPlacas)){
     showToast('⚠️ Ese vehículo ya está en uso — elige otro');
+    return;
+  }
+  // Verificar que este mensajero no tenga ya otra unidad activa
+  const otraActivaMv=vUsuarioTieneOtraSalidaActiva(APP.user?APP.user.name:'',mvSelectedPlacas);
+  if(otraActivaMv){
+    const flOtra=FLOTA.find(f=>f.placas===otraActivaMv.placas);
+    showToast('⚠️ Ya tienes activa la unidad '+(flOtra?flOtra.nombre:otraActivaMv.placas)+' — registra su regreso antes de tomar otra');
     return;
   }
 
@@ -7266,6 +7276,26 @@ function vMovAbierto(placas){
   const reciente=vMovs.find(m=>m.placas===placas&&(m.estado==='fuera'||m.estado==='regresado'));
   return(reciente&&reciente.estado==='fuera')?reciente:null;
 }
+// Antigüedad en horas de un movimiento, usando salidaAt y si no existe cayendo
+// a timestamp (fecha de creación del doc). Sin ninguna fecha confiable se
+// trata como muy antiguo, para no dejarlo escondido indefinidamente.
+function vMovAntiguedadHrs(mov){
+  let ms=null;
+  if(mov.salidaAt) ms=new Date(mov.salidaAt).getTime();
+  else if(mov.timestamp){
+    if(typeof mov.timestamp.toMillis==='function') ms=mov.timestamp.toMillis();
+    else if(mov.timestamp.seconds) ms=mov.timestamp.seconds*1000;
+  }
+  if(ms==null||isNaN(ms)) return Infinity;
+  return (Date.now()-ms)/3600000;
+}
+// Evita que un mismo usuario tenga más de una unidad activa a la vez —
+// si ya tiene otra placa en 'fuera', hay que cerrarla antes de tomar una nueva.
+function vUsuarioTieneOtraSalidaActiva(nombreUsuario,placasExcluir){
+  const nombre=(nombreUsuario||'').trim().toLowerCase();
+  if(!nombre)return null;
+  return vMovs.find(m=>m.estado==='fuera'&&(m.usuario||'').trim().toLowerCase()===nombre&&m.placas!==placasExcluir)||null;
+}
 function vFmtHora(iso){
   if(!iso)return'—';
   const d=new Date(iso);
@@ -7409,11 +7439,17 @@ async function renderAdminFlota(){
   }
 
   // Vehículos en uso ahora — liberación administrativa (caso emergencia)
+  // Solo salidas de las últimas 24h: los registros huérfanos más viejos (que
+  // nunca cerraron con un regreso) no deben saturar esta lista — para esos
+  // está el botón "Limpiar salidas antiguas".
   const enUsoEl=document.getElementById('adminFlotaEnUso');
   if(enUsoEl){
-    const activos=vMovs.filter(m=>m.estado==='fuera');
+    const activos=vMovs.filter(m=>m.estado==='fuera'&&vMovAntiguedadHrs(m)<=24);
+    const antiguosCount=vMovs.filter(m=>m.estado==='fuera'&&vMovAntiguedadHrs(m)>24).length;
+    const purgaBtnEl=document.getElementById('adminFlotaPurgaBtn');
+    if(purgaBtnEl)purgaBtnEl.textContent='🧹 Limpiar salidas antiguas (>24h)'+(antiguosCount?' · '+antiguosCount:'');
     enUsoEl.innerHTML=!activos.length
-      ?'<div style="font-size:11.5px;color:var(--text-muted);padding:6px 0;">Ninguna unidad en uso en este momento.</div>'
+      ?'<div style="font-size:11.5px;color:var(--text-muted);padding:6px 0;">Ninguna unidad en uso en las últimas 24h.</div>'
       :activos.map(m=>{
         const fl=FLOTA.find(f=>f.placas===m.placas);
         const hrs=m.salidaAt?Math.floor((Date.now()-new Date(m.salidaAt).getTime())/3600000):null;
@@ -7721,6 +7757,14 @@ async function vGuardarReserva(){
   }
 
   if(inmediato&&vMovAbierto(vReservaPlacas)){showToast('⚠️ Este vehículo está en uso ahora — prográmalo para más tarde');return;}
+  if(inmediato){
+    const otraActivaVr=vUsuarioTieneOtraSalidaActiva(usuario,vReservaPlacas);
+    if(otraActivaVr){
+      const flOtra=FLOTA.find(f=>f.placas===otraActivaVr.placas);
+      showToast('⚠️ '+usuario+' ya tiene activa la unidad '+(flOtra?flOtra.nombre:otraActivaVr.placas)+' — ciérrala antes de tomar otra');
+      return;
+    }
+  }
   // Traslape contra reservas del mismo día
   const choque=vReservasDe(vReservaPlacas).find(r=>r.fechaUso===fechaUso&&horaInicio<(r.horaRegresoEst||'23:59')&&horaRegreso>(r.horaInicio||'00:00'));
   if(choque){showToast('⚠️ Ya hay reserva ese día de '+choque.horaInicio+' a '+choque.horaRegresoEst+' ('+(choque.usuario||'—')+')');return;}
@@ -7779,6 +7823,12 @@ async function vConfirmarIniciarSalida(){
   const snap=await getDoc(doc(window.db,'flotaMovimientos',_vIniciarSalidaMovId));
   if(!snap.exists()){showToast('⚠️ No se encontró la reserva');return;}
   const d=snap.data();
+  const otraActivaVis=vUsuarioTieneOtraSalidaActiva(d.usuario,d.placas);
+  if(otraActivaVis){
+    const flOtra=FLOTA.find(f=>f.placas===otraActivaVis.placas);
+    showToast('⚠️ '+(d.usuario||'Este usuario')+' ya tiene activa la unidad '+(flOtra?flOtra.nombre:otraActivaVis.placas)+' — ciérrala antes de iniciar esta salida');
+    return;
+  }
   const folioVeh=generateVehFolio();
   const salidaAt=new Date().toISOString();
   await updateDoc(doc(window.db,'flotaMovimientos',_vIniciarSalidaMovId),{
@@ -8027,6 +8077,32 @@ async function vLiberarUnidadAdmin(movId){
   </div>`;
   document.body.appendChild(modal);
   showToast('🔓 Unidad liberada por administración');
+  renderAdminFlota();
+}
+
+// Limpieza masiva de salidas huérfanas: registros 'fuera' de más de 24h que
+// nunca se cerraron con un regreso (ej. errores viejos, mensajero que olvidó
+// registrar el regreso). Los cierra SIN verificar km/gasolina — es una purga
+// administrativa, no un regreso real.
+async function vPurgarSalidasAntiguas(){
+  if(!window.db||!window.fbFns)return;
+  const antiguos=vMovs.filter(m=>m.estado==='fuera'&&vMovAntiguedadHrs(m)>24);
+  if(!antiguos.length){showToast('✅ No hay salidas antiguas por limpiar');return;}
+  const ok=confirm('¿Cerrar '+antiguos.length+' salida'+(antiguos.length===1?'':'s')+' de más de 24 horas?\n\nSe marcarán como regresadas (Cierre Automático por Sistema / Purga Admin) SIN verificar km/gasolina. Úsalo solo para limpiar registros huérfanos viejos — no para cerrar unidades realmente en uso.');
+  if(!ok)return;
+  const{doc,updateDoc}=window.fbFns;
+  const adminNombre=(APP.user&&APP.user.name)||'Coordinación';
+  const regresoAt=new Date().toISOString();
+  const resultados=await Promise.allSettled(antiguos.map(m=>updateDoc(doc(window.db,'flotaMovimientos',m.id),{
+    estado:'regresado',regresoAt,
+    kmRegreso:m.kmRegreso||'N/A',gasRegreso:m.gasRegreso||'no_verificado',
+    gasRegresoMotivo:m.gasRegresoMotivo||'Cierre automático por sistema — purga admin',
+    cerradoPorAdmin:true,adminQueLibero:adminNombre,purgaMasiva:true,
+    observaciones:(m.observaciones?m.observaciones+' · ':'')+'Cierre Automático por Sistema / Purga Admin ('+adminNombre+')'
+  })));
+  const okCount=resultados.filter(r=>r.status==='fulfilled').length;
+  const failCount=resultados.length-okCount;
+  showToast('🧹 '+okCount+' salida'+(okCount===1?'':'s')+' antigua'+(okCount===1?'':'s')+' cerrada'+(okCount===1?'':'s')+(failCount?' · '+failCount+' con error':''));
   renderAdminFlota();
 }
 
