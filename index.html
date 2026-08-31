@@ -582,6 +582,19 @@ textarea.field-input{resize:vertical;min-height:72px;}
 .btn-apoyo:active{background:var(--red);color:white;}
 .btn-apoyo.active{background:var(--red);color:white;}
 
+/* ── DISPONIBILIDAD INTELIGENTE (matriz perfil + agenda) ── */
+.disp-alert{border-radius:var(--radius-sm);padding:12px 14px;margin:0 0 12px;font-size:12.5px;line-height:1.55;font-weight:600;border:1.5px solid transparent;}
+.disp-alert.disp-verde{background:var(--iq-green-pale);border-color:rgba(0,200,150,0.4);color:var(--iq-green);animation:dispPulseVerde 2.2s ease-in-out infinite;}
+.disp-alert.disp-amarillo{background:var(--amber-pale);border-color:rgba(255,165,2,0.5);color:var(--amber);animation:dispPulseAmarillo 1.3s ease-in-out infinite;}
+.disp-alert.disp-rojo{background:var(--red-pale);border-color:rgba(255,71,87,0.55);color:var(--red);animation:dispPulseRojo 0.9s ease-in-out infinite;}
+.disp-alert.disp-shake{animation:dispShake 0.5s ease-in-out;}
+.disp-alert .disp-call{display:inline-block;margin-top:6px;font-weight:800;}
+.disp-alert .disp-call a{color:inherit;text-decoration:underline;}
+@keyframes dispPulseVerde{0%,100%{box-shadow:0 0 0 0 rgba(0,200,150,0)}50%{box-shadow:0 0 0 3px rgba(0,200,150,0.18)}}
+@keyframes dispPulseAmarillo{0%,100%{box-shadow:0 0 0 0 rgba(255,165,2,0)}50%{box-shadow:0 0 0 4px rgba(255,165,2,0.25)}}
+@keyframes dispPulseRojo{0%,100%{box-shadow:0 0 0 0 rgba(255,71,87,0)}50%{box-shadow:0 0 0 5px rgba(255,71,87,0.3)}}
+@keyframes dispShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+
 /* ── AUDIT LOG ── */
 .audit-trail{margin-top:8px;padding-top:8px;border-top:1px solid var(--iq-border);}
 .audit-item{display:flex;align-items:flex-start;gap:6px;padding:4px 0;font-size:10px;color:var(--text-muted);}
@@ -1244,6 +1257,8 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
         </div>
 
         <div id="messengerListArea"></div>
+        <!-- DISPONIBILIDAD INTELIGENTE: perfil + agenda del cronograma, ±30 min -->
+        <div id="dispInteligenteAlert" class="disp-alert" style="display:none;" tabindex="-1"></div>
         <button class="btn btn-primary" id="btnMensajeroNext" disabled onclick="goToPreview()">Revisar y enviar →</button>
         <button class="btn btn-secondary" onclick="goScreen('screen-area-form')">← Regresar</button>
       </div>
@@ -2716,6 +2731,7 @@ function selMensajeroArea(id){
   const el=document.getElementById('mc-'+id);
   if(el)el.classList.add('selected');
   document.getElementById('btnMensajeroNext').disabled=false;
+  try{ renderDisponibilidadInteligente(); }catch(e){console.warn('renderDisponibilidadInteligente:',e);}
 }
 
 
@@ -3429,9 +3445,11 @@ async function confirmResultadoVuelta(){
 function getAreaIcon(id){return AREAS.find(a=>a.id===id)?.icon||'📦';}
 
 let mvSelectedPlacas = null;
+let mvSelectedId = null;
 
 async function openVehicleModal(){
   mvSelectedPlacas = null;
+  mvSelectedId = null;
   document.getElementById('mvKmSalida').value = '';
   document.getElementById('mvGasScale').innerHTML = gasScaleHTML('mv','');
   await vCargarFlotaCfg();
@@ -3474,7 +3492,7 @@ async function openVehicleModal(){
     const accion = esPropio
       ? `onclick="closeModal('vehicleModal');vPedirFolioRegreso('${ocupado.id}','${v.placas}');" style="margin-top:6px;width:100%;padding:7px;background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.3);border-radius:var(--radius-xs);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font);">🏁 Registrar mi regreso</button`
       : '';
-    return `<div data-placas="${v.placas}" data-nombre="${v.nombre}"
+    return `<div data-id="${v.id}" data-placas="${v.placas}" data-nombre="${v.nombre}"
       onclick="${libre?'mvSelectVehicle(this)':''}"
       style="border:1.5px solid ${border};background:${bg};border-radius:var(--radius-sm);padding:10px 12px;
              cursor:${libre?'pointer':'default'};opacity:${libre||esPropio?'1':'0.6'};transition:border .2s;">
@@ -3493,16 +3511,19 @@ async function openVehicleModal(){
 }
 
 function mvSelectVehicle(el){
-  const v=FLOTA.find(f=>f.placas===el.dataset.placas);
+  const v=FLOTA.find(f=>f.id===el.dataset.id);
   vCheckMantKm(v, async ()=>{
     // Deseleccionar anterior
     document.querySelectorAll('#mvFlotaOpts > div').forEach(d=>{
-      if(d.dataset.placas !== el.dataset.placas){
+      if(d.dataset.id !== el.dataset.id){
+        d.classList.remove('selected');
         d.style.borderColor = 'var(--iq-border2)';
         d.style.boxShadow = 'none';
       }
     });
+    mvSelectedId = el.dataset.id;
     mvSelectedPlacas = el.dataset.placas;
+    el.classList.add('selected');
     el.style.borderColor = 'var(--iq-green)';
     el.style.boxShadow = '0 0 0 2px rgba(0,200,150,0.2)';
     // Mostrar último km de esta unidad como referencia
@@ -3521,7 +3542,16 @@ function mvSelectVehicle(el){
 }
 
 async function saveVehicle(){
-  if(!mvSelectedPlacas){ showToast('⚠️ Selecciona una unidad'); return; }
+  // Recuperación robusta: si la variable de estado se perdiera, se toma del DOM
+  // la tarjeta marcada como seleccionada (por id, ya que las placas pueden estar vacías
+  // en unidades aún no configuradas, ej. Toyota Yaris 2025 — ver FLOTA_BASE).
+  if(!mvSelectedId){
+    const selEl = document.querySelector('#mvFlotaOpts > div.selected');
+    if(selEl){ mvSelectedId = selEl.dataset.id; mvSelectedPlacas = selEl.dataset.placas; }
+  }
+  if(!mvSelectedId){ showToast('⚠️ Selecciona una unidad'); return; }
+  const vSel = FLOTA.find(f=>f.id===mvSelectedId);
+  mvSelectedPlacas = vSel ? vSel.placas : mvSelectedPlacas;
 
   const horaEntrada = document.getElementById('mvHoraEntrada').value;
   const horaSalida = document.getElementById('mvHoraSalida').value;
@@ -3537,7 +3567,7 @@ async function saveVehicle(){
     if(!gasSalidaMotivo){ showToast('⚠️ Indica por qué no se pudo verificar la gasolina'); return; }
   }
 
-  const v = FLOTA.find(f=>f.placas===mvSelectedPlacas);
+  const v = vSel;
   const hoy = new Date().toISOString().slice(0,10);
   const ahora = new Date().toISOString();
 
@@ -4927,6 +4957,17 @@ function checkUltimoDisponible(newStatus){
 
 // Override goToPreview to include fecha futura
 function goToPreview(){
+  // BLOQUEO DURO: si la flotilla activa está 100% saturada (rojo) a esa hora,
+  // no se permite avanzar al envío — se fuerza a corregir hora/mensajero o llamar a Coordinación.
+  try{
+    const dispInfo = renderDisponibilidadInteligente();
+    if(dispInfo && dispInfo.estado==='rojo'){
+      sacudirAlertaDisponibilidad();
+      showToast('⛔ Flotilla saturada a esa hora — revisa la alerta o llama a Coordinación');
+      return;
+    }
+  }catch(e){console.warn('chequeo disponibilidad inteligente:',e);}
+
   const nombre = document.getElementById('fNombre')?.value.trim()||'';
   const necesidad = document.getElementById('fNecesidad')?.value.trim()||'';
   const hora = document.getElementById('fHora')?.value||'';
@@ -5341,6 +5382,132 @@ function getMensajeroEventoEnFecha(mensajeroId, fecha, hora){
 }
 
 // ════════════════════════════════════════════════════
+// DISPONIBILIDAD INTELIGENTE — cruza PERFIL (estatus en vivo + ausencias)
+// con AGENDA (solicitudes del cronograma + bloqueos_agenda) para decidir
+// si un mensajero está realmente libre a una fecha/hora, recomendar al
+// mejor disponible, y calcular el próximo slot libre de la flotilla activa.
+// ════════════════════════════════════════════════════
+
+// Flotilla candidata: activos por turno, dados de alta, sin ausencia ese día,
+// y con estatus de perfil que permite operar (excluye libre/alimentos/fuera_turno).
+function getFlotillaCandidata(fecha){
+  let keys = [];
+  try{ keys = getMensajerosActivos(); }catch(e){}
+  if(!keys||!keys.length) keys = Object.keys(MENSAJEROS_DATA);
+  return keys.filter(k=>{
+    const m = MENSAJEROS_DATA[k];
+    if(!m || m.activo===false) return false;
+    if(getAusenciaParaFecha(k, fecha)) return false;
+    const st = APP.mensajeroEstatus[k] || 'disponible';
+    return st!=='libre' && st!=='alimentos' && st!=='fuera_turno';
+  });
+}
+
+// ¿Este mensajero (ya elegible por perfil) tiene la ventana ±30 min libre en su agenda?
+function evalDisponibilidadMensajero(mensajeroId, fecha, horaStr){
+  const horaNum = cronMinutosDeHoraStr(horaStr);
+  if(horaNum===null) return {libre:true};
+  const chocaSolicitud = (APP.solicitudes||[]).some(s=>{
+    if(s.mensajeroId !== mensajeroId) return false;
+    if(s.status==='completada' || s.cancelada) return false;
+    const sFecha = s.fechaProgramada || (s.tiempoCreado||'').slice(0,10);
+    if(sFecha !== fecha) return false;
+    const sMin = cronMinutosDeHoraStr(s.hora||'');
+    if(sMin===null) return false;
+    return Math.abs(horaNum - sMin) <= 30;
+  });
+  if(chocaSolicitud) return {libre:false, motivo:'agenda'};
+  const chocaBloqueo = (APP.bloqueosAgenda||[]).some(b=>{
+    if(b.idMensajero !== mensajeroId || b.estado!=='activo' || b.fecha!==fecha) return false;
+    const ini = cronMinutosDeHoraStr(b.horaInicio||'');
+    const fin = cronMinutosDeHoraStr(b.horaFin||'');
+    if(ini===null||fin===null) return false;
+    return horaNum >= ini-30 && horaNum <= fin+30;
+  });
+  if(chocaBloqueo) return {libre:false, motivo:'bloqueo'};
+  return {libre:true};
+}
+
+// Próximo slot de 30 min, después de horaStr, donde ALGUIEN de la flotilla activa esté libre
+function proximoSlotLibreFlotilla(fecha, horaStr, candidatos){
+  let horaNum = cronMinutosDeHoraStr(horaStr);
+  if(horaNum===null || !candidatos.length) return null;
+  horaNum = Math.ceil((horaNum+1)/30)*30;
+  const finDia = 23*60+30;
+  for(let t=horaNum; t<=finDia; t+=30){
+    const horaCand = String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');
+    if(candidatos.some(k=>evalDisponibilidadMensajero(k, fecha, horaCand).libre)) return horaCand;
+  }
+  return null;
+}
+
+// Evalúa el estado (verde/amarillo/rojo) para la fecha/hora/mensajero seleccionados actualmente
+function evaluarSlotSolicitud(fecha, hora, mensajeroSeleccionadoId){
+  if(!hora || !mensajeroSeleccionadoId) return {estado:null};
+  const candidatos = getFlotillaCandidata(fecha);
+  if(!candidatos.length) return {estado:null}; // sin flotilla elegible por perfil — lo maneja el aviso "todos ocupados"
+  if(candidatos.includes(mensajeroSeleccionadoId) && evalDisponibilidadMensajero(mensajeroSeleccionadoId, fecha, hora).libre){
+    return {estado:'verde'};
+  }
+  const libres = candidatos.filter(k=>k!==mensajeroSeleccionadoId && evalDisponibilidadMensajero(k, fecha, hora).libre);
+  if(libres.length){
+    return {estado:'amarillo', recomendado:libres[0]};
+  }
+  return {estado:'rojo', proximoSlot:proximoSlotLibreFlotilla(fecha, hora, candidatos)};
+}
+
+function getEstadoDisponibilidadActual(){
+  const fecha = getFechaSeleccionada ? getFechaSeleccionada() : cronFechaStr(new Date());
+  const hora = document.getElementById('fHora')?.value || '';
+  const selId = (APP.mensajero && APP.mensajero.id && APP.mensajero.id!=='admin') ? APP.mensajero.id : null;
+  return Object.assign({fecha, hora, selId}, evaluarSlotSolicitud(fecha, hora, selId));
+}
+
+// Pinta la alerta 🟢/🟡/🔴 debajo del selector de mensajero y devuelve el estado evaluado
+// (misma fuente de verdad que usa el bloqueo duro en goToPreview()).
+function renderDisponibilidadInteligente(){
+  const box = document.getElementById('dispInteligenteAlert');
+  const info = getEstadoDisponibilidadActual();
+  if(!box) return info;
+  if(!info.estado){
+    box.style.display='none'; box.className='disp-alert'; box.innerHTML='';
+    return info;
+  }
+  const nombreSel = MENSAJEROS_DATA[info.selId]?.name || info.selId;
+  let cls, html;
+  if(info.estado==='verde'){
+    cls='disp-verde';
+    html = '✅ Horario y mensajero disponibles para agendar.';
+  } else if(info.estado==='amarillo'){
+    cls='disp-amarillo';
+    const nombreRec = MENSAJEROS_DATA[info.recomendado]?.name || info.recomendado;
+    html = '⚠️ '+nombreSel+' no está disponible a esa hora. Te recomendamos seleccionar a <strong>'+nombreRec+'</strong>, que tiene el horario 100% disponible.';
+  } else {
+    cls='disp-rojo';
+    html = '⛔ <strong>FLOTILLA DISPONIBLE OCUPADA A LAS '+info.hora+' hrs.</strong><br>'
+      + (info.proximoSlot
+          ? '📌 Próximo horario disponible con mensajería activa: <strong>'+info.proximoSlot+'</strong>.'
+          : '📌 No hay horarios disponibles con la flotilla activa para el resto del día.')
+      + '<br><span class="disp-call">🚨 ¿Tu vuelta es URGENTE y no puede esperarse? Comunícate a Coordinación al <a href="tel:+528991227489">899 122 7489</a>.</span>';
+  }
+  box.className = 'disp-alert '+cls;
+  box.innerHTML = html;
+  box.style.display = 'block';
+  return info;
+}
+
+function sacudirAlertaDisponibilidad(){
+  const box = document.getElementById('dispInteligenteAlert');
+  if(!box) return;
+  box.scrollIntoView({behavior:'smooth', block:'center'});
+  box.classList.remove('disp-shake');
+  void box.offsetWidth; // reinicia la animación aunque ya tuviera la clase
+  box.classList.add('disp-shake');
+  try{ box.focus({preventScroll:true}); }catch(e){}
+  setTimeout(()=>box.classList.remove('disp-shake'), 550);
+}
+
+// ════════════════════════════════════════════════════
 // UPDATE renderMensajeroListArea to show ausencias
 // ════════════════════════════════════════════════════
 function renderMensajeroListAreaConAusencias(){
@@ -5451,6 +5618,8 @@ function renderMensajeroListAreaConAusencias(){
       const btn=document.getElementById('btnMensajeroNext');
       if(btn) btn.disabled=false;
     }
+
+    try{ renderDisponibilidadInteligente(); }catch(e){console.warn('renderDisponibilidadInteligente:',e);}
   }catch(err){
     console.error('renderMensajeroListAreaConAusencias:',err);
     const c=document.getElementById('messengerListArea');
