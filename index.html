@@ -1068,7 +1068,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
               ℹ️ La hora que indiques debe estar garantizada: el paquete, documento o persona deben estar listos en ese momento. Si el mensajero llega y el servicio no puede realizarse por esta causa, la vuelta quedará registrada como incidencia del área.
             </div>
             <!-- CONFLICT ALERT -->
-            <div id="conflictoAlert" style="display:none;background:var(--amber-pale);border:1px solid rgba(255,165,2,0.3);border-radius:var(--radius-xs);padding:10px 12px;margin-bottom:8px;font-size:12px;color:var(--amber);"></div>
+            <div id="conflictoAlert" style="display:none;background:var(--amber-pale);border:1px solid rgba(255,165,2,0.3);border-radius:var(--radius-xs);padding:10px 12px;margin-bottom:8px;font-size:12px;color:var(--amber);animation:dispPulseAmarillo 1.3s ease-in-out infinite;"></div>
             <!-- BLOQUEO DE AGENDA ALERT -->
             <div id="bloqueoAlert" style="display:none;background:var(--iq-green-pale);border:1px solid rgba(0,200,150,0.3);border-radius:var(--radius-xs);padding:10px 12px;margin-bottom:8px;font-size:12px;color:var(--iq-green);"></div>
             <div class="field-group">
@@ -4961,6 +4961,12 @@ function goToPreview(){
   // no se permite avanzar al envío — se fuerza a corregir hora/mensajero o llamar a Coordinación.
   try{
     const dispInfo = renderDisponibilidadInteligente();
+    if(dispInfo && dispInfo.estado==='ocupado'){
+      const nombreSel = MENSAJEROS_DATA[dispInfo.selId]?.name || dispInfo.selId;
+      sacudirAlertaDisponibilidad();
+      showToast('⛔ '+nombreSel+' ya tiene una vuelta a esa hora — selecciona otro mensajero o cambia de horario');
+      return;
+    }
     if(dispInfo && dispInfo.estado==='rojo'){
       sacudirAlertaDisponibilidad();
       showToast('⛔ Flotilla saturada a esa hora — revisa la alerta o llama a Coordinación');
@@ -5451,7 +5457,9 @@ function evaluarSlotSolicitud(fecha, hora, mensajeroSeleccionadoId){
   }
   const libres = candidatos.filter(k=>k!==mensajeroSeleccionadoId && evalDisponibilidadMensajero(k, fecha, hora).libre);
   if(libres.length){
-    return {estado:'amarillo', recomendado:libres[0]};
+    // BLOQUEO DURO: el mensajero elegido manualmente ya tiene vuelta a esa hora.
+    // Aunque haya otros libres, no se permite avanzar con este seleccionado.
+    return {estado:'ocupado', recomendado:libres[0]};
   }
   return {estado:'rojo', proximoSlot:proximoSlotLibreFlotilla(fecha, hora, candidatos)};
 }
@@ -5478,10 +5486,11 @@ function renderDisponibilidadInteligente(){
   if(info.estado==='verde'){
     cls='disp-verde';
     html = '✅ Horario y mensajero disponibles para agendar.';
-  } else if(info.estado==='amarillo'){
-    cls='disp-amarillo';
+  } else if(info.estado==='ocupado'){
+    cls='disp-rojo';
     const nombreRec = MENSAJEROS_DATA[info.recomendado]?.name || info.recomendado;
-    html = '⚠️ '+nombreSel+' no está disponible a esa hora. Te recomendamos seleccionar a <strong>'+nombreRec+'</strong>, que tiene el horario 100% disponible.';
+    html = '⛔ <strong>'+nombreSel+' ya tiene una vuelta agendada a esta hora.</strong><br>Por favor selecciona un mensajero disponible o cambia de horario.'
+      + '<br><span style="font-size:11px;opacity:0.85;">💡 Sugerencia: <strong>'+nombreRec+'</strong> tiene el horario disponible.</span>';
   } else {
     cls='disp-rojo';
     html = '⛔ <strong>FLOTILLA DISPONIBLE OCUPADA A LAS '+info.hora+' hrs.</strong><br>'
