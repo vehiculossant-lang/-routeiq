@@ -1590,8 +1590,8 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
         <div class="section-label">Bitácora del vehículo</div>
         <div class="form-card">
           <div class="two-col">
-            <div class="field-group"><div class="field-label">🚗 Vehículo</div><input class="field-input" type="text" id="bVehiculo" placeholder="Marca/Modelo"></div>
-            <div class="field-group"><div class="field-label">🔢 Placas</div><input class="field-input" type="text" id="bPlacas" placeholder="ABC-123" style="text-transform:uppercase;"></div>
+            <div class="field-group"><div class="field-label">🚗 Vehículo</div><input class="field-input" type="text" id="bVehiculo" placeholder="Marca/Modelo" oninput="cvSyncObsFromDOM();cvRender();"></div>
+            <div class="field-group"><div class="field-label">🔢 Placas</div><input class="field-input" type="text" id="bPlacas" placeholder="ABC-123" style="text-transform:uppercase;" oninput="cvSyncObsFromDOM();cvRender();"></div>
           </div>
           <div class="two-col">
             <div class="field-group"><div class="field-label">📍 KM Salida</div><input class="field-input" type="number" id="bKmSal" placeholder="00000"></div>
@@ -1604,6 +1604,9 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           <div class="field-group"><div class="field-label">⚠️ Incidencias del vehículo</div><textarea class="field-input" id="bIncidencias" placeholder="Ej: Llanta baja, golpe..."></textarea></div>
           <div class="field-group"><div class="field-label">📋 Resumen del día</div><textarea class="field-input" id="bResumen" placeholder="Describe tus actividades..."></textarea></div>
         </div>
+
+        <div id="vehChecklistBox"></div>
+
         <div class="form-card">
           <div class="section-label">⏰ Tiempo extra</div>
           <div class="two-col">
@@ -1757,7 +1760,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
         <div class="form-card">
           <div class="section-label">📋 Resultado de vueltas (vueltas con incidencia)</div>
           <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.4;">No todas las vueltas terminan en entrega. Aquí se ve qué tanto pasa y por qué área, para conversar con datos — sin exponer a nadie en el grupo.</p>
-          <div id="iResultadoVueltas"></div>
+          <div id="iResultadoVueltas" style="max-height:500px;overflow-y:auto;"></div>
         </div>
         <div class="form-card">
           <div class="section-label">Horas pico</div>
@@ -1855,22 +1858,61 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
           </div>
           <button class="btn-excel" onclick="downloadCSV()">📊 Descargar Excel (.csv)</button>
         </div>
+        <div style="height:16px;"></div>
+      </div>
+    </div>
 
-        <!-- FLOTA VEHICULAR (admin) -->
-        <div class="form-card" style="margin-top:14px;">
-          <div class="section-label">🚗 Flota vehicular</div>
+    <!-- ADMIN: VEHÍCULOS (módulo dedicado de control vehicular) -->
+    <div class="screen" id="screen-admin-vehiculos">
+      <div style="padding-top:14px;">
+
+        <!-- a) FLOTA ACTIVA Y MANTENIMIENTO -->
+        <div class="section-label">🚗 Flota activa y mantenimiento</div>
+        <div class="form-card">
           <div id="adminFlotaAlertas"></div>
           <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin:8px 0 6px;">🔧 Placas y mantenimiento</div>
           <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.4;">Edita las placas cuando haya cambio de documentos, y activa "En mantenimiento" para bloquear la unidad en el panel público.</p>
           <div id="adminFlotaEditor"></div>
           <button class="btn btn-primary" style="margin-top:8px;" onclick="vGuardarFlotaCfg()">💾 Guardar placas y mantenimiento</button>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:14px 0 6px;">
+        </div>
+        <div class="form-card">
+          <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">➕ Registrar nueva unidad</div>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.4;">Agrega una unidad nueva a la flotilla. Quedará disponible de inmediato en reservas, cronograma y bitácora.</p>
+          <div class="two-col">
+            <div class="field-group"><div class="field-label">Marca / Modelo</div><input class="field-input" type="text" id="vNuevoNombre" placeholder="Ej. Chevrolet Tornado 2023"></div>
+            <div class="field-group"><div class="field-label">Placas</div><input class="field-input" type="text" id="vNuevoPlacas" placeholder="ABC-123" style="text-transform:uppercase;"></div>
+          </div>
+          <div class="two-col">
+            <div class="field-group"><div class="field-label">Año</div><input class="field-input" type="number" id="vNuevoAnio" placeholder="2023"></div>
+            <div class="field-group"><div class="field-label">Odómetro actual</div><input class="field-input" type="number" id="vNuevoKm" placeholder="00000"></div>
+          </div>
+          <button class="btn btn-secondary" onclick="vRegistrarVehiculo()">➕ Agregar a la flotilla</button>
+        </div>
+
+        <!-- b) SOLICITUDES Y APROBACIÓN DE USO -->
+        <div class="section-label" style="margin-top:4px;">📝 Solicitudes y aprobación de uso</div>
+        <div class="form-card">
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.4;">Solicitudes de vehículo enviadas por colaboradores desde el panel de Vehículos. Al aprobar, el bloque queda como "Reservado" en la bitácora.</p>
+          <div id="adminSolicitudesVeh"></div>
+        </div>
+
+        <!-- c) AUDITORÍA DE CHECKLISTS VEHICULARES -->
+        <div class="section-label" style="margin-top:4px;">📋 Auditoría de checklists vehiculares</div>
+        <div class="form-card">
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.4;">Checklist de inspección vehicular capturado por cada mensajero en su bitácora de hoy.</p>
+          <div id="adminChecklistAuditoria"></div>
+        </div>
+
+        <!-- d) BITÁCORA DE MOVIMIENTOS -->
+        <div class="section-label" style="margin-top:4px;">📋 Bitácora de movimientos</div>
+        <div class="form-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
             <div style="font-size:12px;font-weight:700;color:var(--text-secondary);">🔓 Vehículos en uso ahora</div>
             <button id="adminFlotaPurgaBtn" onclick="vPurgarSalidasAntiguas()" style="font-size:10.5px;font-weight:700;padding:6px 10px;border-radius:7px;cursor:pointer;white-space:nowrap;border:1px solid var(--iq-border2);background:var(--iq-surface2);color:var(--text-secondary);">🧹 Limpiar salidas antiguas (&gt;24h)</button>
           </div>
           <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.4;">Liberación administrativa: usa esto solo si el usuario no puede registrar su propio regreso (emergencia, cambio de turno, etc). Se notifica a guardias que el cierre lo hizo Coordinación. Solo se listan salidas de las últimas 24h — las más antiguas se limpian con el botón de arriba.</p>
           <div id="adminFlotaEnUso" style="max-height:350px;overflow-y:auto;"></div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin:14px 0 6px;">📋 Bitácora de movimientos</div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin:14px 0 6px;">📋 Historial de salidas y entradas</div>
           <p style="font-size:10.5px;color:var(--text-muted);margin-bottom:8px;line-height:1.4;">Muestra solo los últimos 15 días. Para movimientos más antiguos usa el buscador de abajo.</p>
           <div id="adminFlotaBitacora" style="max-height:500px;overflow-y:auto;"></div>
           <button class="btn-excel" style="margin-top:10px;" onclick="vDownloadCSV()">📊 Exportar bitácora (.csv)</button>
@@ -1996,6 +2038,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
         <div class="section-label">🚗 Control de flota</div>
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Aparta tu unidad del día. Si una unidad está libre, cualquier mensajero puede reservarla.</div>
         <button class="btn btn-secondary" style="width:100%;margin-bottom:12px;font-weight:700;" onclick="goScreen('screen-vehiculos-cron');renderCronVeh();">📅 Ver cronograma de vehículos</button>
+        <button class="btn btn-secondary" style="width:100%;margin-bottom:12px;font-weight:700;" onclick="vAbrirSolicitudUso()">📝 Solicitar vehículo (requiere aprobación)</button>
         <div id="vAlertas"></div>
         <div id="vFlotaList"></div>
         <button class="btn btn-secondary" style="margin-top:10px;" onclick="vSalir()">← Salir</button>
@@ -2052,13 +2095,31 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
     <div class="modal-handle"></div>
     <div class="modal-title">🍽️ ¿Cuánto tiempo para comer?</div>
     <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">Al terminar el tiempo regresarás automáticamente a <strong>Disponible</strong>. Las áreas verán que estás en alimentos.</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;">
-      <button class="btn btn-secondary" onclick="iniciarAlimentos(30)">30 minutos</button>
-      <button class="btn btn-secondary" onclick="iniciarAlimentos(45)">45 minutos</button>
-      <button class="btn btn-secondary" onclick="iniciarAlimentos(60)">1 hora</button>
-      <button class="btn btn-secondary" onclick="iniciarAlimentos(90)">1 hora 30 min</button>
+    <button class="btn btn-primary" style="margin-bottom:6px;" onclick="iniciarAlimentos(60)">1 hora</button>
+    <button class="btn btn-secondary" onclick="closeModal('alimentosTimerModal')">Cancelar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="alimentosUnicoModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🍽️ ¿Cuánto tiempo para comer?</div>
+    <div class="apoyo-alert">
+      <div class="apoyo-header"><span class="apoyo-icon">⚠️</span><div class="apoyo-title">Eres el único mensajero disponible en este momento</div></div>
+      <div class="apoyo-detail">Comunícate a Coordinación al <a href="tel:8991227489" style="color:inherit;font-weight:700;">899 122 7489</a> para avisar sobre tu salida a alimentos.</div>
     </div>
-    <button class="btn btn-secondary" style="margin-top:6px;" onclick="closeModal('alimentosTimerModal')">Cancelar</button>
+    <p style="font-size:12.5px;font-weight:700;color:var(--text-secondary);margin-bottom:12px;">¿Ya le avisaste a Coordinación?</p>
+    <button class="btn btn-primary" style="margin-bottom:6px;" onclick="confirmarAlimentosUnico()">✅ Sí, ya avisé</button>
+    <button class="btn btn-secondary" onclick="closeModal('alimentosUnicoModal')">No / Cancelar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="cvAuditModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📋 Checklist vehicular</div>
+    <div id="cvAuditModalBody" style="margin-top:6px;"></div>
+    <button class="btn btn-secondary" style="margin-top:10px;" onclick="closeModal('cvAuditModal')">Cerrar</button>
   </div>
 </div>
 
@@ -2112,6 +2173,28 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
     <div id="vFolioRegresoErr" style="display:none;background:var(--red-pale);color:var(--red);border:1px solid rgba(225,29,72,0.2);border-radius:var(--radius-xs);padding:8px 12px;font-size:12px;margin-bottom:10px;"></div>
     <button class="btn btn-primary" onclick="vVerificarFolioRegreso()">🔓 Verificar y continuar</button>
     <button class="btn btn-secondary" onclick="closeModal('vFolioRegresoModal')">Cancelar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="vSolicitudUsoModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📝 Solicitar vehículo</div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">Tu solicitud se envía a Coordinación para aprobación. Solo al aprobarse queda reservada en la bitácora.</p>
+    <div class="field-group"><div class="field-label">Tu nombre *</div><input class="field-input" type="text" id="vsuSolicitante" placeholder="Nombre completo"></div>
+    <div class="field-group"><div class="field-label">Área / Departamento *</div><input class="field-input" type="text" id="vsuArea" placeholder="Ej. Laboratorio"></div>
+    <div class="field-group"><div class="field-label">Vehículo *</div><select class="field-input" id="vsuVehiculo"></select></div>
+    <div class="field-group"><div class="field-label">Motivo *</div><input class="field-input" type="text" id="vsuMotivo" placeholder="Ej. Traslado de documentos al banco"></div>
+    <div class="two-col">
+      <div class="field-group"><div class="field-label">Fecha *</div><input class="field-input" type="date" id="vsuFecha"></div>
+      <div class="field-group"></div>
+    </div>
+    <div class="two-col">
+      <div class="field-group"><div class="field-label">Hora inicio *</div><input class="field-input" type="time" id="vsuHoraInicio"></div>
+      <div class="field-group"><div class="field-label">Hora fin *</div><input class="field-input" type="time" id="vsuHoraFin"></div>
+    </div>
+    <button class="btn btn-primary" onclick="vEnviarSolicitudUso()">📤 Enviar solicitud</button>
+    <button class="btn btn-secondary" onclick="closeModal('vSolicitudUsoModal')">Cancelar</button>
   </div>
 </div>
 
@@ -2407,6 +2490,19 @@ const MENSAJEROS_DATA={
   ebert: {name:'Ebert',  initials:'EB', zone:'Turno nocturno',       pin:'1005', turno:'nocturno', inicio:19, fin:6},
 };
 
+// ── CHECKLIST VEHICULAR (bitácora del mensajero) ──
+const CHECKLIST_SECTIONS=[
+  {id:'apariencia',   title:'1️⃣ Apariencia General',       type:'si_no',     pos:'✅ Sí',     neg:'❌ No',    items:['Limpieza de la unidad','Fuga de niveles','Daños a la carrocería']},
+  {id:'cabina',       title:'2️⃣ Cabina de Operadores',     type:'si_no',     pos:'✅ Sí',     neg:'❌ No',    items:['Asientos y cinturones de seguridad','Espejos laterales','Aire acondicionado','Documentación vigente']},
+  {id:'motor',        title:'3️⃣ Compartimento del Motor',  type:'si_no',     pos:'✅ Sí',     neg:'❌ No',    items:['Señal de fugas','Batería','Cables sueltos','Ruidos o anormalidades','Aceite de motor','Transmisión','Dirección','Líquido de frenos','Agua de parabrisas / anticongelante']},
+  {id:'extOperador',  title:'4️⃣ Exterior Lado Operador',   type:'bueno_malo',pos:'✅ Bueno',  neg:'⚠️ Malo',  items:['Direccional izquierda','Base espejo lateral','Limpia-parabrisas izq','Llantas aspecto e inflado']},
+  {id:'frontal',      title:'5️⃣ Zona Frontal',             type:'bueno_malo',pos:'✅ Bueno',  neg:'⚠️ Malo',  items:['Parrilla','Luces frontales','Luces frontales "Altas"','Direccionales','Intermitentes','Defensa delantera']},
+  {id:'extCopiloto',  title:'6️⃣ Exterior Lado Copiloto',   type:'bueno_malo',pos:'✅ Bueno',  neg:'⚠️ Malo',  items:['Direccional derecha','Base espejo lateral','Limpia-parabrisas derecho','Llantas aspecto e inflado']},
+  {id:'posterior',    title:'7️⃣ Zona Posterior',           type:'bueno_malo',pos:'✅ Bueno',  neg:'⚠️ Malo',  items:['Luces traseras','Luces de reversa','Intermitentes','Defensa trasera','Llanta de refacción']},
+  {id:'herramientas', title:'8️⃣ Herramientas y Aditivos',  type:'bueno_malo',pos:'✅ Bueno',  neg:'⚠️ Malo',  items:['Gato hidráulico','Implementos del gato','Llave de cruz o "L"','Extintor','Señalamientos de emergencia']},
+];
+const CHECKLIST_TOTAL_ITEMS=CHECKLIST_SECTIONS.reduce((a,s)=>a+s.items.length,0);
+
 
 let APP={
   role:null,user:null,area:null,prioridad:null,mensajero:null,
@@ -2419,6 +2515,7 @@ let APP={
   unsubSolicitudes:null,unsubEstatus:null,unsubAgendas:null,
   bloqueosAgenda:[],
   selectedRating:null,lastFolio:null,
+  checklistVeh:{},cvOpen:{},
 };
 
 // ── INIT ──
@@ -2537,8 +2634,11 @@ function goTab(tab){
     if(tab==='dash')renderAdminDash();
     if(tab==='sols')renderAdminSols();
     if(tab==='cal'){renderCal();renderProgramacionesFuturas();}
-    if(tab==='indicadores'){renderIndicadores();renderAdminFlota();}
+    if(tab==='indicadores')renderIndicadores();
+    if(tab==='vehiculos'){renderAdminFlota();renderAdminChecklists();renderAdminSolicitudesVeh();}
     if(tab==='cfg')renderCfgFields();
+  } else if(APP.role==='mensajero' && tab==='bitacora'){
+    cvRender();
   }
 }
 
@@ -2941,6 +3041,10 @@ function stSeleccionable(st){
 let alimentosTimerInterval = null;
 let alimentosEndAt = null;
 
+function confirmarAlimentosUnico(){
+  closeModal('alimentosUnicoModal');
+  iniciarAlimentos(60);
+}
 function iniciarAlimentos(mins){
   closeModal('alimentosTimerModal');
   alimentosEndAt = Date.now() + mins * 60 * 1000;
@@ -3701,6 +3805,68 @@ async function mRegistrarRegresoVehiculo(){
   }
 }
 
+// ── CHECKLIST VEHICULAR (interactivo, dentro de la Bitácora del mensajero) ──
+const cvEsc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function cvSyncObsFromDOM(){
+  const el=document.getElementById('cvObs');
+  if(el) APP.checklistVeh.__obs=el.value;
+}
+function cvToggleSection(secId){
+  cvSyncObsFromDOM();
+  APP.cvOpen[secId]=!APP.cvOpen[secId];
+  cvRender();
+}
+function cvSetAnswer(secId,idx,val){
+  cvSyncObsFromDOM();
+  APP.checklistVeh[secId+'__'+idx]=val;
+  cvRender();
+}
+function cvRender(){
+  const box=document.getElementById('vehChecklistBox');
+  if(!box)return;
+  const veh=(document.getElementById('bVehiculo')?.value||'').trim()||'—';
+  const pla=(document.getElementById('bPlacas')?.value||'').trim().toUpperCase()||'—';
+  let totalAnswered=0;
+  const seccionesHtml=CHECKLIST_SECTIONS.map(sec=>{
+    const open=!!APP.cvOpen[sec.id];
+    let done=0,bad=0;
+    const rows=sec.items.map((label,idx)=>{
+      const val=APP.checklistVeh[sec.id+'__'+idx]||null;
+      if(val){done++;totalAnswered++;}
+      if(val==='bad')bad++;
+      const posSel=val==='ok',negSel=val==='bad';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--iq-border);font-size:12px;">'
+        +'<span style="color:var(--text-secondary);flex:1;">'+cvEsc(label)+'</span>'
+        +'<span style="display:flex;gap:6px;flex-shrink:0;">'
+        +'<button type="button" onclick="cvSetAnswer(\''+sec.id+'\','+idx+',\'ok\')" style="font-size:10.5px;font-weight:700;padding:5px 9px;border-radius:6px;cursor:pointer;border:1px solid '+(posSel?'var(--iq-green)':'var(--iq-border2)')+';background:'+(posSel?'var(--iq-green-pale)':'var(--iq-surface2)')+';color:'+(posSel?'var(--iq-green)':'var(--text-secondary)')+';">'+sec.pos+'</button>'
+        +'<button type="button" onclick="cvSetAnswer(\''+sec.id+'\','+idx+',\'bad\')" style="font-size:10.5px;font-weight:700;padding:5px 9px;border-radius:6px;cursor:pointer;border:1px solid '+(negSel?'var(--red)':'var(--iq-border2)')+';background:'+(negSel?'var(--red-pale)':'var(--iq-surface2)')+';color:'+(negSel?'var(--red)':'var(--text-secondary)')+';">'+sec.neg+'</button>'
+        +'</span></div>';
+    }).join('');
+    const counterColor=bad>0?'var(--red)':(done===sec.items.length?'var(--iq-green)':'var(--text-muted)');
+    return '<div style="border:1px solid var(--iq-border);border-radius:var(--radius-sm);margin-bottom:8px;overflow:hidden;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;cursor:pointer;background:var(--iq-surface);" onclick="cvToggleSection(\''+sec.id+'\')">'
+      +'<span style="font-size:12.5px;font-weight:700;">'+sec.title+'</span>'
+      +'<span style="display:flex;align-items:center;gap:8px;">'
+      +'<span style="font-size:10.5px;font-family:var(--mono);color:'+counterColor+';font-weight:700;">'+done+'/'+sec.items.length+(bad>0?' · ⚠️'+bad:'')+'</span>'
+      +'<span style="font-size:11px;color:var(--text-muted);">'+(open?'▲':'▼')+'</span>'
+      +'</span></div>'
+      +'<div style="padding:'+(open?'4px 12px 2px':'0')+';display:'+(open?'block':'none')+';">'+rows+'</div>'
+      +'</div>';
+  }).join('');
+  const pct=CHECKLIST_TOTAL_ITEMS?Math.round((totalAnswered/CHECKLIST_TOTAL_ITEMS)*100):0;
+  const obsVal=APP.checklistVeh.__obs!=null?APP.checklistVeh.__obs:'';
+  box.innerHTML='<div class="form-card" id="vehChecklistCard">'
+    +'<div class="section-label">📋 Checklist vehicular</div>'
+    +'<div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;" id="cvHeaderUnidad">🚗 Unidad a inspeccionar: '+cvEsc(veh)+' | Placas: '+cvEsc(pla)+'</div>'
+    +'<div style="background:var(--iq-surface);border-radius:20px;height:8px;overflow:hidden;margin-bottom:4px;"><div style="height:100%;background:linear-gradient(135deg,var(--iq-green),var(--iq-green-dark));border-radius:20px;transition:width .25s;width:'+pct+'%;"></div></div>'
+    +'<div style="font-size:10.5px;color:var(--text-muted);text-align:right;margin-bottom:12px;">'+totalAnswered+'/'+CHECKLIST_TOTAL_ITEMS+' respondidas ('+pct+'%)</div>'
+    +seccionesHtml
+    +'<div class="field-group" style="margin-top:10px;">'
+    +'<div class="field-label">📝 Observaciones generales</div>'
+    +'<textarea class="field-input" id="cvObs" placeholder="Notas adicionales del checklist..." oninput="cvSyncObsFromDOM()">'+cvEsc(obsVal)+'</textarea>'
+    +'</div></div>';
+}
+
 function calcExtra(){
   const fin=document.getElementById('bTurnoFin').value,sal=document.getElementById('bSalidaReal').value;
   if(!fin||!sal)return;
@@ -3712,18 +3878,43 @@ function calcExtra(){
 
 async function saveBitacora(){
   if(!APP.user)return;
+  cvSyncObsFromDOM();
   const data={mensajeroId:APP.user.id,mensajeroNombre:APP.user.name,vehiculo:document.getElementById('bVehiculo').value,placas:document.getElementById('bPlacas').value.toUpperCase(),kmSalida:document.getElementById('bKmSal').value,kmLlegada:document.getElementById('bKmLleg').value,horaEntrada:document.getElementById('bHrIn').value,horaSalida:document.getElementById('bHrOut').value,incidencias:document.getElementById('bIncidencias').value,resumen:document.getElementById('bResumen').value,fecha:new Date().toISOString().slice(0,10)};
-  if(window.db&&window.fbFns){const{collection,addDoc}=window.fbFns;await addDoc(collection(window.db,'bitacoras'),data);}
+  const cvSecciones={};
+  let cvRespondidas=0,cvAnomalias=0;
+  CHECKLIST_SECTIONS.forEach(sec=>{
+    cvSecciones[sec.id]=sec.items.map((label,idx)=>{
+      const valor=APP.checklistVeh[sec.id+'__'+idx]||null;
+      if(valor){cvRespondidas++;}
+      if(valor==='bad'){cvAnomalias++;}
+      return {label,valor};
+    });
+  });
+  const checklistData={
+    mensajeroId:APP.user.id, mensajeroNombre:APP.user.name,
+    vehiculo:data.vehiculo, placas:data.placas, km:data.kmLlegada||data.kmSalida||'',
+    secciones:cvSecciones, totalItems:CHECKLIST_TOTAL_ITEMS,
+    totalRespondidas:cvRespondidas, totalAnomalias:cvAnomalias,
+    observaciones:APP.checklistVeh.__obs||'',
+    fecha:data.fecha, creadoEn:new Date().toISOString(),
+  };
+  if(window.db&&window.fbFns){
+    const{collection,addDoc}=window.fbFns;
+    await addDoc(collection(window.db,'bitacoras'),data);
+    await addDoc(collection(window.db,'checklists_vehiculos'),checklistData);
+  }
   enviarWebhookRouteIQ('bitacora_mensajero',{
     fecha:data.fecha, hora:data.horaSalida||data.horaEntrada||'',
     responsable:data.mensajeroNombre,
     vehiculo:(data.vehiculo||'')+' · '+(data.placas||''),
     motivo:data.resumen||'', km_salida:data.kmSalida, km_regreso:data.kmLlegada,
     km_recorridos:calcKmRecorridos(data.kmSalida,data.kmLlegada),
-    estatus:'registrada', urgente:data.incidencias?'Sí':'No',
+    estatus:'registrada', urgente:(data.incidencias||cvAnomalias)?'Sí':'No',
     observaciones:data.incidencias||'',
   });
-  showToast('✅ Bitácora guardada');
+  APP.checklistVeh={};APP.cvOpen={};
+  cvRender();
+  showToast(cvAnomalias?'✅ Bitácora guardada — ⚠️ '+cvAnomalias+' anomalía(s) en el checklist':'✅ Bitácora guardada');
 }
 
 // ── ADMIN PIN ──
@@ -3766,7 +3957,7 @@ function aLoginOk(){
 }
 function renderAdminNav(){
   const nav=document.getElementById('bottomNav');nav.style.display='flex';
-  nav.innerHTML=`<div class="nav-item active" onclick="goTab('dash')" id="tab-dash"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></div><div class="nav-item" onclick="goTab('sols')" id="tab-sols"><span class="nav-icon">📋</span><span class="nav-label">Solicitudes</span></div><div class="nav-item" onclick="goTab('cal')" id="tab-cal"><span class="nav-icon">📅</span><span class="nav-label">Calendario</span></div><div class="nav-item" onclick="goTab('indicadores')" id="tab-indicadores"><span class="nav-icon">📈</span><span class="nav-label">Indicadores</span></div><div class="nav-item" onclick="goTab('cfg')" id="tab-cfg"><span class="nav-icon">⚙️</span><span class="nav-label">Config</span></div>`;
+  nav.innerHTML=`<div class="nav-item active" onclick="goTab('dash')" id="tab-dash"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></div><div class="nav-item" onclick="goTab('sols')" id="tab-sols"><span class="nav-icon">📋</span><span class="nav-label">Solicitudes</span></div><div class="nav-item" onclick="goTab('cal')" id="tab-cal"><span class="nav-icon">📅</span><span class="nav-label">Calendario</span></div><div class="nav-item" onclick="goTab('indicadores')" id="tab-indicadores"><span class="nav-icon">📈</span><span class="nav-label">Indicadores</span></div><div class="nav-item" onclick="goTab('vehiculos')" id="tab-vehiculos"><span class="nav-icon">🚗</span><span class="nav-label">Vehículos</span></div><div class="nav-item" onclick="goTab('cfg')" id="tab-cfg"><span class="nav-icon">⚙️</span><span class="nav-label">Config</span></div>`;
 }
 
 function renderAdminDash(){
@@ -3957,28 +4148,27 @@ function renderIndicadores(){
   const maxA=Math.max(...areas.map(a=>a.c),1);
   document.getElementById('iAreaChart').innerHTML=areas.map(a=>`<div class="area-row-i"><span style="font-size:16px;">${a.icon}</span><span style="font-size:12px;font-weight:500;flex:1;">${a.name}</span><div class="area-bar-mini"><div class="area-bar-fill" style="width:${Math.round((a.c/maxA)*100)}%;"></div></div><div class="area-count-i">${a.c}</div></div>`).join('');
 
-  // Resultado de vueltas (incidencias) por área — solo lectura interna de coordinación
+  // Resultado de vueltas (incidencias) — desglose individual auditable, solo lectura interna de coordinación
   const RV_LABELS={sin_paquete:'❌ Sin paquete / no listo',cerrado:'🔒 Lugar cerrado',reprogramada:'⏳ Reprogramada',otro:'📝 Otro'};
-  const conIncidencia=APP.solicitudes.filter(s=>s.resultado && s.resultado!=='completada');
+  const rvEsc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const conIncidencia=APP.solicitudes.filter(s=>s.resultado && s.resultado!=='completada')
+    .sort((a,b)=>new Date(b.horaTerminada||0)-new Date(a.horaTerminada||0));
   const rvEl=document.getElementById('iResultadoVueltas');
   if(rvEl){
     if(!conIncidencia.length){
       rvEl.innerHTML='<div style="font-size:12px;color:var(--text-muted);">Sin incidencias registradas en este periodo.</div>';
     } else {
-      const porArea={};
-      conIncidencia.forEach(s=>{
-        const key=s.area||'—';
-        porArea[key]=porArea[key]||{count:0,motivos:{}};
-        porArea[key].count++;
-        porArea[key].motivos[s.resultado]=(porArea[key].motivos[s.resultado]||0)+1;
-      });
-      const filas=Object.entries(porArea).sort((a,b)=>b[1].count-a[1].count);
-      rvEl.innerHTML=filas.map(([area,d])=>{
-        const motivosTxt=Object.entries(d.motivos).map(([k,v])=>`${RV_LABELS[k]||k} ×${v}`).join(' · ');
-        return `<div style="background:var(--iq-surface2);border:1px solid var(--iq-border);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:6px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;"><strong style="font-size:12.5px;">${area}</strong><span style="font-size:12px;font-weight:700;color:var(--amber);">${d.count} vuelta${d.count>1?'s':''}</span></div>
-          <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px;">${motivosTxt}</div>
-        </div>`;
+      rvEl.innerHTML=conIncidencia.map(s=>{
+        const fechaTxt=s.horaTerminada?vFmtHora(s.horaTerminada):'—';
+        return '<div style="background:var(--iq-surface);border:1px solid var(--iq-border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px;">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">'
+          +'<span style="background:var(--iq-surface2);border:1px solid var(--iq-border2);border-radius:20px;padding:2px 9px;font-size:10.5px;font-weight:700;color:var(--text-secondary);">'+rvEsc(s.area||'—')+'</span>'
+          +'<span style="font-size:10px;font-family:var(--mono);color:var(--text-muted);">'+fechaTxt+'</span>'
+          +'</div>'
+          +'<div style="margin-top:6px;font-size:12.5px;font-weight:700;color:var(--amber);">'+(RV_LABELS[s.resultado]||rvEsc(s.resultado))+'</div>'
+          +'<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">🛵 '+rvEsc(s.mensajeroNombre||s.mensajeroId||'—')+' · Folio '+rvEsc(s.folio||s.id||'—')+'</div>'
+          +(s.resultadoNota?'<div style="margin-top:6px;background:var(--iq-surface2);border-left:3px solid var(--amber);border-radius:4px;padding:6px 9px;font-size:11.5px;color:var(--text-primary);font-style:italic;">"'+rvEsc(s.resultadoNota)+'"</div>':'')
+          +'</div>';
       }).join('');
     }
   }
@@ -5221,6 +5411,18 @@ async function mLoginOk(){
 function setMStatus(st, el){
   // Alimentos: abrir selector de tiempo antes de cambiar
   if(st === 'alimentos'){
+    // ¿Es el único mensajero activo en turno (sin nadie más cubriendo)?
+    // En ese caso no lo bloqueamos — se le exige avisar a Coordinación antes de proceder.
+    const activosEnTurno = getMensajerosActivos().filter(k=>{
+      const s = APP.mensajeroEstatus[k] || 'disponible';
+      return s !== 'fuera_turno';
+    });
+    if(activosEnTurno.length <= 1){
+      openModal('alimentosUnicoModal');
+      return;
+    }
+    // Regla anticolapso: con más de un mensajero activo en turno, no se permite
+    // que todos queden en alimentos/libre al mismo tiempo — debe quedar 1 operando.
     if(!checkUltimoDisponible('alimentos')) return;
     openModal('alimentosTimerModal');
     return;
@@ -7265,11 +7467,14 @@ const FLOTA_BASE = [
 // vAplicarFlotaCfg() actualiza estos mismos objetos en su lugar.
 let FLOTA = FLOTA_BASE.map(v=>({...v, mantenimiento:false}));
 let vFlotaCfg = {}; // overrides cargados de Firestore: {id:{placas, mantenimiento}}
+let vFlotaExtras = []; // unidades nuevas registradas desde Coordinación: {id,nombre,placas,anio,kmInicial}
 
 function vAplicarFlotaCfg(){
+  const extras = vFlotaExtras.map(x=>({id:x.id, nombre:x.nombre, placas:x.placas, mensajeroHabitual:null, anio:x.anio, kmInicial:x.kmInicial}));
+  FLOTA = [...FLOTA_BASE, ...extras].map(v=>({...v, mantenimiento:false}));
   FLOTA.forEach(v=>{
     const ov = vFlotaCfg[v.id] || {};
-    v.placas = (ov.placas!==undefined && ov.placas!==null && ov.placas!=='') ? ov.placas : (FLOTA_BASE.find(b=>b.id===v.id)||{}).placas;
+    v.placas = (ov.placas!==undefined && ov.placas!==null && ov.placas!=='') ? ov.placas : v.placas;
     v.mantenimiento = !!ov.mantenimiento;
     v.kmUltimoMant = ov.kmUltimoMant || 0;
     v.mantCount = ov.mantenimientosCount || 0;
@@ -7332,9 +7537,35 @@ async function vCargarFlotaCfg(){
   try{
     const{doc,getDoc}=window.fbFns;
     const snap=await getDoc(doc(window.db,'flotaConfig','main'));
-    vFlotaCfg = snap.exists()?snap.data():{};
-  }catch(e){ vFlotaCfg = {}; }
+    const data = snap.exists()?snap.data():{};
+    const{__extras,...overrides}=data;
+    vFlotaCfg = overrides;
+    vFlotaExtras = Array.isArray(__extras) ? __extras : [];
+  }catch(e){ vFlotaCfg = {}; vFlotaExtras = []; }
   vAplicarFlotaCfg();
+}
+
+async function vRegistrarVehiculo(){
+  const nombre=(document.getElementById('vNuevoNombre')?.value||'').trim();
+  const placas=(document.getElementById('vNuevoPlacas')?.value||'').trim().toUpperCase();
+  const anio=(document.getElementById('vNuevoAnio')?.value||'').trim();
+  const km=(document.getElementById('vNuevoKm')?.value||'').trim();
+  if(!nombre){showToast('⚠️ Falta la marca/modelo de la unidad');return;}
+  if(!placas){showToast('⚠️ Faltan las placas');return;}
+  if(FLOTA.some(f=>f.placas===placas)){showToast('⚠️ Ya existe una unidad registrada con esas placas');return;}
+  const id='veh_'+Date.now().toString(36);
+  vFlotaExtras.push({id,nombre,placas,anio,kmInicial:km});
+  vAplicarFlotaCfg();
+  if(window.db&&window.fbFns){
+    const{doc,setDoc}=window.fbFns;
+    await setDoc(doc(window.db,'flotaConfig','main'),{__extras:vFlotaExtras},{merge:true});
+  }
+  document.getElementById('vNuevoNombre').value='';
+  document.getElementById('vNuevoPlacas').value='';
+  document.getElementById('vNuevoAnio').value='';
+  document.getElementById('vNuevoKm').value='';
+  renderAdminFlota();
+  showToast('✅ Unidad agregada a la flotilla');
 }
 
 // Toggle visual inmediato (se guarda al tocar el botón principal "Guardar")
@@ -7373,7 +7604,7 @@ async function vGuardarFlotaCfg(){
   }
   if(window.db&&window.fbFns){
     const{doc,setDoc}=window.fbFns;
-    try{ await setDoc(doc(window.db,'flotaConfig','main'),data); }
+    try{ await setDoc(doc(window.db,'flotaConfig','main'),data,{merge:true}); }
     catch(e){ showToast('⚠️ No se pudo guardar — revisa la conexión'); return; }
   }
   vFlotaCfg=data;
@@ -7569,6 +7800,129 @@ function vRenderPanel(){
       +'<div style="text-align:right;max-width:60%;">'+estadoHTML+'</div></div>'
       +btn+resHTML+'</div>';
   }).join('');
+}
+
+// ── AUDITORÍA DE CHECKLISTS VEHICULARES (Coordinación) ──
+let cvAuditDocs=[];
+async function renderAdminChecklists(){
+  const el=document.getElementById('adminChecklistAuditoria');
+  if(!el)return;
+  const hoy=new Date().toISOString().slice(0,10);
+  cvAuditDocs=[];
+  if(window.db&&window.fbFns){
+    try{
+      const{collection,getDocs,query,where}=window.fbFns;
+      const snap=await getDocs(query(collection(window.db,'checklists_vehiculos'),where('fecha','==',hoy)));
+      snap.docs.forEach(d=>cvAuditDocs.push({id:d.id,...d.data()}));
+    }catch(e){console.error('renderAdminChecklists:',e);}
+  }
+  const roster=Object.keys(MENSAJEROS_DATA).filter(k=>MENSAJEROS_DATA[k].activo!==false);
+  el.innerHTML=roster.map(id=>{
+    const m=MENSAJEROS_DATA[id];
+    const doc=cvAuditDocs.filter(d=>d.mensajeroId===id).sort((a,b)=>new Date(b.creadoEn||0)-new Date(a.creadoEn||0))[0];
+    if(!doc){
+      return '<div style="background:var(--iq-surface);border:1px solid var(--iq-border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;">'
+        +'<div><strong style="font-size:12.5px;">'+cvEsc(m.name)+'</strong><div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">Sin checklist registrado hoy</div></div>'
+        +'<span style="font-size:11px;font-weight:700;color:var(--red);white-space:nowrap;">🔴 Pendiente</span>'
+        +'</div>';
+    }
+    const hora=doc.creadoEn?vFmtHora(doc.creadoEn):'—';
+    const n=doc.totalAnomalias||0;
+    const anomBadge=n>0
+      ?'<span style="font-size:10.5px;font-weight:700;color:var(--amber);">⚠️ '+n+' anomalía'+(n>1?'s':'')+' reportada'+(n>1?'s':'')+'</span>'
+      :'<span style="font-size:10.5px;font-weight:700;color:var(--iq-green);">✅ Sin anomalías</span>';
+    return '<div style="background:var(--iq-surface);border:1px solid var(--iq-border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">'
+      +'<strong style="font-size:12.5px;">'+cvEsc(m.name)+'</strong>'
+      +'<span style="font-size:11px;font-weight:700;color:var(--iq-green);white-space:nowrap;">🟢 Realizado · '+hora+'</span>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--text-secondary);margin-top:3px;">🚗 '+cvEsc(doc.vehiculo||'—')+' · '+cvEsc(doc.placas||'—')+'</div>'
+      +'<div style="margin-top:4px;">'+anomBadge+'</div>'
+      +'<button type="button" data-id="'+doc.id+'" onclick="cvAuditAbrir(this.dataset.id)" style="margin-top:8px;font-size:11px;font-weight:700;padding:7px 10px;border-radius:7px;cursor:pointer;border:1px solid var(--iq-border2);background:var(--iq-surface2);color:var(--text-secondary);width:100%;">🔍 Ver checklist completo</button>'
+      +'</div>';
+  }).join('');
+}
+function cvAuditAbrir(docId){
+  const doc=cvAuditDocs.find(d=>d.id===docId);
+  const body=document.getElementById('cvAuditModalBody');
+  if(!doc||!body)return;
+  const seccionesHtml=CHECKLIST_SECTIONS.map(sec=>{
+    const respuestas=(doc.secciones&&doc.secciones[sec.id])||[];
+    const rows=respuestas.map(r=>{
+      const val=r.valor;
+      const label=val==='ok'?sec.pos:(val==='bad'?sec.neg:'— Sin responder');
+      const color=val==='ok'?'var(--iq-green)':(val==='bad'?'var(--red)':'var(--text-muted)');
+      return '<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--iq-border);font-size:12px;">'
+        +'<span style="color:var(--text-secondary);flex:1;">'+cvEsc(r.label)+'</span>'
+        +'<span style="font-weight:700;color:'+color+';white-space:nowrap;">'+label+'</span></div>';
+    }).join('');
+    return '<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;margin-bottom:4px;">'+sec.title+'</div>'+rows+'</div>';
+  }).join('');
+  body.innerHTML='<div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:10px;">'
+    +'<strong style="color:var(--white);">'+cvEsc(doc.mensajeroNombre)+'</strong> · 🚗 '+cvEsc(doc.vehiculo||'—')+' · '+cvEsc(doc.placas||'—')
+    +'<br><span style="font-family:var(--mono);color:var(--text-muted);">'+(doc.creadoEn?vFmtHora(doc.creadoEn):'—')+' · '+(doc.totalRespondidas||0)+'/'+(doc.totalItems||CHECKLIST_TOTAL_ITEMS)+' respondidas · ⚠️ '+(doc.totalAnomalias||0)+' anomalía(s)</span>'
+    +'</div>'
+    +seccionesHtml
+    +(doc.observaciones?'<div style="margin-top:10px;background:var(--iq-surface2);border-left:3px solid var(--amber);border-radius:4px;padding:8px 10px;font-size:12px;font-style:italic;color:var(--text-primary);">"'+cvEsc(doc.observaciones)+'"</div>':'');
+  openModal('cvAuditModal');
+}
+
+// ── SOLICITUDES Y APROBACIÓN DE USO DE VEHÍCULOS (Coordinación) ──
+let vSolicitudesVeh=[];
+async function renderAdminSolicitudesVeh(){
+  const el=document.getElementById('adminSolicitudesVeh');
+  if(!el)return;
+  vSolicitudesVeh=[];
+  if(window.db&&window.fbFns){
+    try{
+      const{collection,getDocs,query,where}=window.fbFns;
+      const snap=await getDocs(query(collection(window.db,'flotaSolicitudes'),where('estado','==','pendiente')));
+      snap.docs.forEach(d=>vSolicitudesVeh.push({id:d.id,...d.data()}));
+    }catch(e){console.error('renderAdminSolicitudesVeh:',e);}
+  }
+  if(!vSolicitudesVeh.length){
+    el.innerHTML='<div class="empty-state"><div class="ei">📭</div><p>Sin solicitudes pendientes</p></div>';
+    return;
+  }
+  vSolicitudesVeh.sort((a,b)=>new Date(a.creadoEn||0)-new Date(b.creadoEn||0));
+  el.innerHTML=vSolicitudesVeh.map(s=>{
+    return '<div style="background:var(--iq-surface);border:1px solid var(--iq-border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;">'
+      +'<div style="display:flex;justify-content:space-between;gap:8px;"><strong style="font-size:12.5px;">'+cvEsc(s.solicitante)+'</strong><span style="font-size:10.5px;font-family:var(--mono);color:var(--text-muted);">'+cvEsc(s.fecha||'')+'</span></div>'
+      +'<div style="font-size:11px;color:var(--text-secondary);margin-top:3px;">🚗 '+cvEsc(s.vehiculo||'—')+(s.placas?' · '+cvEsc(s.placas):'')+(s.area?' · '+cvEsc(s.area):'')+'</div>'
+      +'<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">📍 '+cvEsc(s.motivo||'—')+'</div>'
+      +'<div style="font-size:10.5px;font-family:var(--mono);color:var(--text-muted);margin-top:2px;">🕐 '+cvEsc(s.horaInicio||'—')+' – '+cvEsc(s.horaFin||'—')+'</div>'
+      +'<div style="display:flex;gap:8px;margin-top:8px;">'
+      +'<button type="button" data-id="'+s.id+'" onclick="vAprobarSolicitud(this.dataset.id)" style="flex:1;font-size:11px;font-weight:700;padding:8px;border-radius:7px;cursor:pointer;border:1px solid var(--iq-green);background:var(--iq-green-pale);color:var(--iq-green);">✅ Aprobar</button>'
+      +'<button type="button" data-id="'+s.id+'" onclick="vRechazarSolicitud(this.dataset.id)" style="flex:1;font-size:11px;font-weight:700;padding:8px;border-radius:7px;cursor:pointer;border:1px solid var(--red);background:var(--red-pale);color:var(--red);">❌ Rechazar</button>'
+      +'</div></div>';
+  }).join('');
+}
+async function vAprobarSolicitud(id){
+  const s=vSolicitudesVeh.find(x=>x.id===id);
+  if(!s||!window.db||!window.fbFns)return;
+  const{doc,updateDoc,collection,addDoc,serverTimestamp}=window.fbFns;
+  const v=FLOTA.find(f=>f.placas===s.placas)||FLOTA.find(f=>f.nombre===s.vehiculo);
+  try{
+    await addDoc(collection(window.db,'flotaMovimientos'),{
+      folioVeh:'', placas:(v?v.placas:s.placas)||'', vehiculo:(v?v.nombre:s.vehiculo)||'',
+      usuario:s.solicitante, areaUsuario:s.area||'', licencia:'',
+      fechaUso:s.fecha, horaInicio:s.horaInicio, horaRegresoEst:s.horaFin, motivo:s.motivo,
+      kmSalida:'', gasSalida:'', gasSalidaMotivo:'',
+      salidaAt:'', estado:'reservado', timestamp:serverTimestamp()
+    });
+    await updateDoc(doc(window.db,'flotaSolicitudes',id),{estado:'aprobada', resueltoEn:new Date().toISOString()});
+  }catch(e){ showToast('⚠️ No se pudo aprobar — revisa la conexión'); return; }
+  showToast('✅ Solicitud aprobada — vehículo reservado');
+  renderAdminSolicitudesVeh();
+  renderAdminFlota();
+}
+async function vRechazarSolicitud(id){
+  if(!window.db||!window.fbFns)return;
+  const{doc,updateDoc}=window.fbFns;
+  try{ await updateDoc(doc(window.db,'flotaSolicitudes',id),{estado:'rechazada', resueltoEn:new Date().toISOString()}); }
+  catch(e){ showToast('⚠️ No se pudo rechazar — revisa la conexión'); return; }
+  showToast('❌ Solicitud rechazada');
+  renderAdminSolicitudesVeh();
 }
 
 // ── RENDER FLOTA EN COORDINACIÓN (bitácora + alertas documentos) ──
@@ -7838,6 +8192,46 @@ function vAbrirReserva(placas){
     }
   }
   vAbrirReservaDirecta(placas);
+}
+
+// Solicitud de uso con aprobación de Coordinación (distinta de la reserva directa de arriba)
+function vAbrirSolicitudUso(){
+  document.getElementById('vsuSolicitante').value='';
+  document.getElementById('vsuArea').value='';
+  document.getElementById('vsuMotivo').value='';
+  document.getElementById('vsuFecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('vsuHoraInicio').value='';
+  document.getElementById('vsuHoraFin').value='';
+  const sel=document.getElementById('vsuVehiculo');
+  if(sel) sel.innerHTML=FLOTA.filter(v=>!v.mantenimiento).map(v=>'<option value="'+v.placas+'">'+v.nombre+' · '+v.placas+'</option>').join('');
+  openModal('vSolicitudUsoModal');
+}
+async function vEnviarSolicitudUso(){
+  const solicitante=(document.getElementById('vsuSolicitante').value||'').trim();
+  const area=(document.getElementById('vsuArea').value||'').trim();
+  const placas=document.getElementById('vsuVehiculo').value;
+  const motivo=(document.getElementById('vsuMotivo').value||'').trim();
+  const fecha=document.getElementById('vsuFecha').value;
+  const horaInicio=document.getElementById('vsuHoraInicio').value;
+  const horaFin=document.getElementById('vsuHoraFin').value;
+  if(!solicitante){showToast('⚠️ Falta tu nombre');return;}
+  if(!area){showToast('⚠️ Falta el área / departamento');return;}
+  if(!placas){showToast('⚠️ Selecciona un vehículo');return;}
+  if(!motivo){showToast('⚠️ Falta el motivo');return;}
+  if(!fecha||!horaInicio||!horaFin){showToast('⚠️ Falta la fecha u horario');return;}
+  if(horaFin<=horaInicio){showToast('⚠️ La hora fin debe ser después de la hora de inicio');return;}
+  const v=FLOTA.find(f=>f.placas===placas);
+  if(window.db&&window.fbFns){
+    const{collection,addDoc}=window.fbFns;
+    try{
+      await addDoc(collection(window.db,'flotaSolicitudes'),{
+        solicitante, area, vehiculo:v?v.nombre:'', placas, motivo,
+        fecha, horaInicio, horaFin, estado:'pendiente', creadoEn:new Date().toISOString()
+      });
+    }catch(e){ showToast('⚠️ No se pudo enviar — revisa la conexión'); return; }
+  }
+  closeModal('vSolicitudUsoModal');
+  showToast('✅ Solicitud enviada a Coordinación');
 }
 
 function vAbrirReservaDirecta(placas){
