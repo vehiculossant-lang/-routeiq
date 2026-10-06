@@ -4,6 +4,34 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>RouteIQ — Smart Dispatch Platform</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>
+// ── CONTROL DE VERSIÓN / SERVICE WORKER ──
+// Sube APP_VERSION en cada cambio publicado: el navegador ve un sw.js nuevo,
+// lo activa al instante (skipWaiting + clients.claim) y la página se recarga
+// una sola vez con la interfaz nueva. sw.js además pide index.html siempre a
+// la red, así que la caché vieja no bloquea los cambios.
+window.APP_VERSION='2026.10.06-1';
+if('serviceWorker' in navigator && location.protocol!=='file:'){
+  const _swTeniaControl=!!navigator.serviceWorker.controller;
+  let _swRecargado=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!_swTeniaControl||_swRecargado)return; // primera instalación: no recargar
+    _swRecargado=true;
+    location.reload();
+  });
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/sw.js?v='+encodeURIComponent(window.APP_VERSION),{updateViaCache:'none'})
+      .then(reg=>{
+        // Al volver a la app (teléfono desbloqueado / pestaña activa) buscar versión nueva
+        document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reg.update().catch(()=>{});});
+      })
+      .catch(e=>console.warn('SW no registrado:',e));
+  });
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
 <script type="module">
@@ -1415,6 +1443,8 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
     <!-- MENSAJERO: HOME -->
     <div class="screen" id="screen-mensajero-home">
       <div style="padding-top:14px;">
+        <!-- RECORDATORIO DE CHECKLIST VEHICULAR (turno + unidad activa) -->
+        <div id="mChecklistBanner" style="display:none;"></div>
         <!-- BOLSA DE VUELTAS: solicitudes programadas sin mensajero asignado -->
         <div id="mBolsaWrap" style="display:none;margin-bottom:16px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -1589,6 +1619,7 @@ td.cron-celda-hoy{background:rgba(0,200,150,0.045)!important;box-shadow:inset 1p
       <div style="padding-top:14px;">
         <div class="section-label">Bitácora del vehículo</div>
         <div class="form-card">
+          <div id="bSalidaInfo" style="display:none;font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.4;"></div>
           <div class="two-col">
             <div class="field-group"><div class="field-label">🚗 Vehículo</div><input class="field-input" type="text" id="bVehiculo" placeholder="Marca/Modelo" oninput="cvSyncObsFromDOM();cvRender();"></div>
             <div class="field-group"><div class="field-label">🔢 Placas</div><input class="field-input" type="text" id="bPlacas" placeholder="ABC-123" style="text-transform:uppercase;" oninput="cvSyncObsFromDOM();cvRender();"></div>
@@ -2639,6 +2670,7 @@ function goTab(tab){
     if(tab==='cfg')renderCfgFields();
   } else if(APP.role==='mensajero' && tab==='bitacora'){
     cvRender();
+    bCargarSalidaActiva();
   }
 }
 
@@ -2646,6 +2678,7 @@ function logout(){
   if(APP.unsubSolicitudes)APP.unsubSolicitudes();
   if(APP.unsubEstatus)APP.unsubEstatus();
   APP.user=null;APP.role=null;
+  APP.cvBanner=null;mRenderBannerChecklist();
   document.getElementById('hBadge').style.display='none';
   document.getElementById('hLogout').style.display='none';
   document.getElementById('bottomNav').style.display='none';
@@ -3116,6 +3149,7 @@ function setMStatusDirect(st){
   APP.mStatus=st;
   document.querySelectorAll('.status-btn').forEach(b=>b.className='status-btn');
   const btn=document.getElementById('sb-'+st);if(btn)btn.classList.add('a-'+st);
+  mRenderBannerChecklist();
   if(window.db&&window.fbFns&&APP.user){
     const{doc,setDoc}=window.fbFns;
     setDoc(doc(window.db,'estatus',APP.user.id),{status:st,updatedAt:new Date().toISOString(),nombre:APP.user.name,turno:APP.user.turno},{merge:true});
@@ -3134,6 +3168,7 @@ function listenEstatus(){
       APP.mStatus=st;
       document.querySelectorAll('.status-btn').forEach(b=>b.className='status-btn');
       const btn=document.getElementById('sb-'+st);if(btn)btn.classList.add('a-'+st);
+      mRenderBannerChecklist();
     }
     if(APP.role==='admin')renderAdminDash();
     renderMensajeroListArea();
@@ -3741,6 +3776,7 @@ async function saveVehicle(){
   const regresoBtn = document.getElementById('mVehRegresoBtn');
   if(regresoBtn) regresoBtn.style.display = 'block';
   closeModal('vehicleModal');
+  mRefrescarBannerChecklist();
 
   // Construir y copiar mensaje WA a guardias (salida)
   const gas=GAS_LABELS[gasSalida]||gasSalida||'—';
@@ -3805,6 +3841,119 @@ async function mRegistrarRegresoVehiculo(){
   }
 }
 
+// ── BITÁCORA: precarga de la salida de vehículo de hoy (evita recaptura) ──
+// Busca el movimiento del mensajero en flotaMovimientos y fija Vehículo,
+// Placas y KM Salida en solo lectura. Cada consulta usa como máximo UN where;
+// el resto del filtrado es en memoria (sin índices compuestos).
+function bSetCamposSalida(mov){
+  const veh=document.getElementById('bVehiculo'),pla=document.getElementById('bPlacas'),km=document.getElementById('bKmSal');
+  const info=document.getElementById('bSalidaInfo');
+  if(!veh||!pla||!km)return;
+  const lock=!!mov;
+  [veh,pla,km].forEach(el=>{
+    el.readOnly=lock;
+    el.style.opacity=lock?'0.75':'';
+    el.style.cursor=lock?'not-allowed':'';
+  });
+  // KM Salida puede ser "N/A" (odómetro ilegible): en modo lectura usar type=text
+  km.type=lock?'text':'number';
+  if(lock){
+    veh.value=mov.vehiculo||mov.placas||'';
+    pla.value=(mov.placas||'').toUpperCase();
+    km.value=mov.kmSalida!=null?String(mov.kmSalida):'';
+    APP.bitacoraMov={id:mov.id,folioVeh:mov.folioVeh||''};
+    if(info){
+      info.innerHTML='🔒 Datos tomados de tu salida registrada'+(mov.folioVeh?' · Folio <strong style="font-family:var(--mono);">'+cvEsc(mov.folioVeh)+'</strong>':'')+(mov.estado==='regresado'?' (unidad ya regresada)':'');
+      info.style.display='block';
+    }
+  }else{
+    // Si venía precargado (otra sesión/movimiento), limpiar para captura manual
+    if(APP.bitacoraMov){veh.value='';pla.value='';km.value='';}
+    APP.bitacoraMov=null;
+    if(info){info.style.display='none';info.innerHTML='';}
+  }
+  cvRender();
+}
+async function bCargarSalidaActiva(){
+  if(!APP.user)return;
+  const nombre=APP.user.name;
+  const mov=await bBuscarSalidaMensajero();
+  // Si el usuario cambió de pestaña/sesión mientras cargaba, no tocar la pantalla
+  if(!APP.user||APP.user.name!==nombre)return;
+  bSetCamposSalida(mov);
+}
+// Devuelve la salida activa del mensajero ('fuera') o, si no hay, su
+// movimiento de hoy. null si no tiene ninguno.
+async function bBuscarSalidaMensajero(){
+  if(!APP.user||!window.db||!window.fbFns)return null;
+  const{doc,getDoc,collection,getDocs,query,where}=window.fbFns;
+  const nombre=APP.user.name;
+  const hoy=new Date().toISOString().slice(0,10);
+  let mov=null;
+  try{
+    // 1) Acceso directo si la salida se registró en esta sesión
+    if(APP.vehicle?.movId){
+      const s=await getDoc(doc(window.db,'flotaMovimientos',APP.vehicle.movId));
+      if(s.exists()&&s.data().estado==='fuera')mov={id:s.id,...s.data()};
+    }
+    // 2) Salida activa del mensajero (cubre turno nocturno que salió ayer)
+    if(!mov){
+      const snap=await getDocs(query(collection(window.db,'flotaMovimientos'),where('estado','==','fuera')));
+      mov=snap.docs.map(d=>({id:d.id,...d.data()}))
+        .filter(m=>m.usuario===nombre)
+        .sort((a,b)=>new Date(b.salidaAt||0)-new Date(a.salidaAt||0))[0]||null;
+    }
+    // 3) Registro del día del mensajero (p. ej. ya regresó la unidad)
+    if(!mov){
+      const snap=await getDocs(query(collection(window.db,'flotaMovimientos'),where('fechaUso','==',hoy)));
+      mov=snap.docs.map(d=>({id:d.id,...d.data()}))
+        .filter(m=>m.usuario===nombre&&m.salidaAt&&m.estado!=='cancelada'&&m.estado!=='reservado')
+        .sort((a,b)=>new Date(b.salidaAt||0)-new Date(a.salidaAt||0))[0]||null;
+    }
+  }catch(e){
+    console.error('bBuscarSalidaMensajero:',e);
+  }
+  return mov;
+}
+
+// ── RECORDATORIO DE CHECKLIST (banner en el panel del mensajero) ──
+// APP.cvBanner = {movFuera, done}: se recalcula con mRefrescarBannerChecklist()
+// (consulta Firestore) y se pinta con mRenderBannerChecklist() (solo estado).
+async function mRefrescarBannerChecklist(){
+  if(APP.role!=='mensajero'||!APP.user)return;
+  const userId=APP.user.id;
+  const mov=await bBuscarSalidaMensajero();
+  let done=false;
+  if(window.db&&window.fbFns){
+    try{
+      const{collection,getDocs,query,where}=window.fbFns;
+      const hoy=new Date().toISOString().slice(0,10);
+      const snap=await getDocs(query(collection(window.db,'checklists_vehiculos'),where('mensajeroId','==',userId)));
+      done=snap.docs.map(d=>d.data()).some(c=>(mov&&c.movId===mov.id)||c.fecha===hoy);
+    }catch(e){console.error('mRefrescarBannerChecklist:',e);}
+  }
+  if(!APP.user||APP.user.id!==userId)return;
+  APP.cvBanner={movFuera:mov&&mov.estado==='fuera'?mov:null,done};
+  mRenderBannerChecklist();
+}
+function mRenderBannerChecklist(){
+  const el=document.getElementById('mChecklistBanner');
+  if(!el)return;
+  const st=APP.cvBanner||{};
+  const enTurno=APP.role==='mensajero'&&!!APP.user&&APP.mStatus!=='fuera_turno';
+  if(enTurno&&st.done){
+    el.innerHTML='<div style="background:var(--iq-green-pale);border:1px solid var(--iq-green);color:var(--iq-green);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;font-size:12.5px;font-weight:700;">✅ Checklist del día completado con éxito</div>';
+    el.style.display='block';
+  }else if(enTurno&&st.movFuera){
+    el.innerHTML='<div onclick="goTab(\'bitacora\')" style="cursor:pointer;background:var(--amber-pale);border:1px solid rgba(255,165,2,0.35);color:var(--amber);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;font-size:12.5px;line-height:1.45;">'
+      +'⚠️ <strong>Checklist pendiente:</strong> Recuerda realizar la inspección de tu unidad ('+cvEsc(st.movFuera.vehiculo||st.movFuera.placas||'—')+'). Tienes durante todo tu turno para completarlo.'
+      +'</div>';
+    el.style.display='block';
+  }else{
+    el.style.display='none';el.innerHTML='';
+  }
+}
+
 // ── CHECKLIST VEHICULAR (interactivo, dentro de la Bitácora del mensajero) ──
 const cvEsc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function cvSyncObsFromDOM(){
@@ -3864,7 +4013,73 @@ function cvRender(){
     +'<div class="field-group" style="margin-top:10px;">'
     +'<div class="field-label">📝 Observaciones generales</div>'
     +'<textarea class="field-input" id="cvObs" placeholder="Notas adicionales del checklist..." oninput="cvSyncObsFromDOM()">'+cvEsc(obsVal)+'</textarea>'
-    +'</div></div>';
+    +'</div>'
+    +'<button type="button" class="btn btn-primary" id="cvEnviarBtn" onclick="enviarChecklistVehicular()" style="margin-top:4px;">💾 Enviar Checklist Vehicular</button>'
+    +'</div>';
+}
+
+// Arma el documento del checklist a partir de APP.checklistVeh y la bitácora en pantalla
+function cvBuildChecklistData(){
+  cvSyncObsFromDOM();
+  const cvSecciones={};
+  let cvRespondidas=0,cvAnomalias=0;
+  CHECKLIST_SECTIONS.forEach(sec=>{
+    cvSecciones[sec.id]=sec.items.map((label,idx)=>{
+      const valor=APP.checklistVeh[sec.id+'__'+idx]||null;
+      if(valor){cvRespondidas++;}
+      if(valor==='bad'){cvAnomalias++;}
+      return {label,valor};
+    });
+  });
+  const kmSal=document.getElementById('bKmSal')?.value||'',kmLleg=document.getElementById('bKmLleg')?.value||'';
+  return {
+    mensajeroId:APP.user.id, mensajeroNombre:APP.user.name,
+    vehiculo:document.getElementById('bVehiculo')?.value||'',
+    placas:(document.getElementById('bPlacas')?.value||'').toUpperCase(),
+    km:kmLleg||kmSal||'',
+    movId:APP.bitacoraMov?.id||null, folioVeh:APP.bitacoraMov?.folioVeh||'',
+    secciones:cvSecciones, totalItems:CHECKLIST_TOTAL_ITEMS,
+    totalRespondidas:cvRespondidas, totalAnomalias:cvAnomalias,
+    observaciones:APP.checklistVeh.__obs||'',
+    fecha:new Date().toISOString().slice(0,10), creadoEn:new Date().toISOString(),
+  };
+}
+async function cvGuardarChecklist(checklistData){
+  if(window.db&&window.fbFns){
+    const{collection,addDoc}=window.fbFns;
+    await addDoc(collection(window.db,'checklists_vehiculos'),checklistData);
+  }
+  APP.checklistVeh={};APP.cvOpen={};
+  APP.cvBanner={...(APP.cvBanner||{}),done:true};
+  cvRender();
+  mRenderBannerChecklist();
+}
+// Envío independiente del checklist (se puede hacer en cualquier momento del turno)
+async function enviarChecklistVehicular(){
+  if(!APP.user)return;
+  const data=cvBuildChecklistData();
+  if(!data.vehiculo.trim()||!data.placas.trim()){
+    showToast('⚠️ Falta '+(!data.vehiculo.trim()?'el vehículo':'las placas')+' de la unidad a inspeccionar');
+    return;
+  }
+  const secPend=CHECKLIST_SECTIONS.find(sec=>data.secciones[sec.id].some(i=>!i.valor));
+  if(secPend){
+    const faltan=data.secciones[secPend.id].filter(i=>!i.valor).length;
+    APP.cvOpen[secPend.id]=true;cvRender();
+    showToast('⚠️ Faltan '+faltan+' punto(s) en "'+secPend.title+'"');
+    return;
+  }
+  const btn=document.getElementById('cvEnviarBtn');
+  if(btn){btn.disabled=true;btn.textContent='Enviando...';}
+  try{
+    await cvGuardarChecklist(data);
+    showToast(data.totalAnomalias?'✅ Checklist enviado — ⚠️ '+data.totalAnomalias+' anomalía(s) reportada(s)':'✅ Checklist vehicular enviado');
+  }catch(e){
+    console.error('enviarChecklistVehicular:',e);
+    showToast('⚠️ No se pudo enviar el checklist: '+e.message);
+    const b=document.getElementById('cvEnviarBtn');
+    if(b){b.disabled=false;b.textContent='💾 Enviar Checklist Vehicular';}
+  }
 }
 
 function calcExtra(){
@@ -3879,29 +4094,18 @@ function calcExtra(){
 async function saveBitacora(){
   if(!APP.user)return;
   cvSyncObsFromDOM();
-  const data={mensajeroId:APP.user.id,mensajeroNombre:APP.user.name,vehiculo:document.getElementById('bVehiculo').value,placas:document.getElementById('bPlacas').value.toUpperCase(),kmSalida:document.getElementById('bKmSal').value,kmLlegada:document.getElementById('bKmLleg').value,horaEntrada:document.getElementById('bHrIn').value,horaSalida:document.getElementById('bHrOut').value,incidencias:document.getElementById('bIncidencias').value,resumen:document.getElementById('bResumen').value,fecha:new Date().toISOString().slice(0,10)};
-  const cvSecciones={};
-  let cvRespondidas=0,cvAnomalias=0;
-  CHECKLIST_SECTIONS.forEach(sec=>{
-    cvSecciones[sec.id]=sec.items.map((label,idx)=>{
-      const valor=APP.checklistVeh[sec.id+'__'+idx]||null;
-      if(valor){cvRespondidas++;}
-      if(valor==='bad'){cvAnomalias++;}
-      return {label,valor};
-    });
-  });
-  const checklistData={
-    mensajeroId:APP.user.id, mensajeroNombre:APP.user.name,
-    vehiculo:data.vehiculo, placas:data.placas, km:data.kmLlegada||data.kmSalida||'',
-    secciones:cvSecciones, totalItems:CHECKLIST_TOTAL_ITEMS,
-    totalRespondidas:cvRespondidas, totalAnomalias:cvAnomalias,
-    observaciones:APP.checklistVeh.__obs||'',
-    fecha:data.fecha, creadoEn:new Date().toISOString(),
-  };
+  const data={mensajeroId:APP.user.id,mensajeroNombre:APP.user.name,vehiculo:document.getElementById('bVehiculo').value,placas:document.getElementById('bPlacas').value.toUpperCase(),kmSalida:document.getElementById('bKmSal').value,kmLlegada:document.getElementById('bKmLleg').value,horaEntrada:document.getElementById('bHrIn').value,horaSalida:document.getElementById('bHrOut').value,incidencias:document.getElementById('bIncidencias').value,resumen:document.getElementById('bResumen').value,fecha:new Date().toISOString().slice(0,10),movId:APP.bitacoraMov?.id||null,folioVeh:APP.bitacoraMov?.folioVeh||''};
+  // El checklist se envía con su propio botón. Si quedó contestado (aunque
+  // sea parcial) sin enviarse, se guarda junto con la bitácora para no perderlo.
+  const checklistData=cvBuildChecklistData();
+  const cvAnomalias=checklistData.totalRespondidas?checklistData.totalAnomalias:0;
   if(window.db&&window.fbFns){
     const{collection,addDoc}=window.fbFns;
     await addDoc(collection(window.db,'bitacoras'),data);
-    await addDoc(collection(window.db,'checklists_vehiculos'),checklistData);
+  }
+  if(checklistData.totalRespondidas){
+    try{await cvGuardarChecklist(checklistData);}
+    catch(e){console.error('saveBitacora checklist:',e);showToast('⚠️ La bitácora se guardó, pero el checklist no: '+e.message);return;}
   }
   enviarWebhookRouteIQ('bitacora_mensajero',{
     fecha:data.fecha, hora:data.horaSalida||data.horaEntrada||'',
@@ -3912,8 +4116,6 @@ async function saveBitacora(){
     estatus:'registrada', urgente:(data.incidencias||cvAnomalias)?'Sí':'No',
     observaciones:data.incidencias||'',
   });
-  APP.checklistVeh={};APP.cvOpen={};
-  cvRender();
   showToast(cvAnomalias?'✅ Bitácora guardada — ⚠️ '+cvAnomalias+' anomalía(s) en el checklist':'✅ Bitácora guardada');
 }
 
@@ -5389,6 +5591,8 @@ async function mLoginOk(){
       if(snap.exists() && snap.data().turnoCheckinKey === turnoKey) yaHizoCheckin = true;
     }catch(e){}
   }
+  APP.cvBanner=null;mRenderBannerChecklist();
+  mRefrescarBannerChecklist();
   if(yaHizoCheckin){
     goScreen('screen-mensajero-home');
   } else {
@@ -7816,14 +8020,39 @@ async function renderAdminChecklists(){
       snap.docs.forEach(d=>cvAuditDocs.push({id:d.id,...d.data()}));
     }catch(e){console.error('renderAdminChecklists:',e);}
   }
+  // Salidas de vehículo de los mensajeros: las de hoy + las que siguen
+  // 'fuera' (turno nocturno que salió ayer). Un where por consulta.
+  let movsMens=[];
+  if(window.db&&window.fbFns){
+    try{
+      const{collection,getDocs,query,where}=window.fbFns;
+      const[sHoy,sFuera]=await Promise.all([
+        getDocs(query(collection(window.db,'flotaMovimientos'),where('fechaUso','==',hoy))),
+        getDocs(query(collection(window.db,'flotaMovimientos'),where('estado','==','fuera'))),
+      ]);
+      const porId={};
+      [...sHoy.docs,...sFuera.docs].forEach(d=>{porId[d.id]={id:d.id,...d.data()};});
+      movsMens=Object.values(porId).filter(m=>m.salidaAt&&m.estado!=='cancelada'&&m.estado!=='reservado');
+    }catch(e){console.error('renderAdminChecklists movimientos:',e);}
+  }
   const roster=Object.keys(MENSAJEROS_DATA).filter(k=>MENSAJEROS_DATA[k].activo!==false);
   el.innerHTML=roster.map(id=>{
     const m=MENSAJEROS_DATA[id];
     const doc=cvAuditDocs.filter(d=>d.mensajeroId===id).sort((a,b)=>new Date(b.creadoEn||0)-new Date(a.creadoEn||0))[0];
     if(!doc){
+      const mov=movsMens.filter(x=>x.usuario===m.name).sort((a,b)=>new Date(b.salidaAt||0)-new Date(a.salidaAt||0))[0];
+      if(mov){
+        return '<div style="background:var(--red-pale);border:1px solid var(--red);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px;">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">'
+          +'<strong style="font-size:12.5px;">'+cvEsc(m.name)+'</strong>'
+          +'<span style="font-size:11px;font-weight:800;color:var(--red);">🔴 NO REALIZADO / OMISIÓN DE INSPECCIÓN</span>'
+          +'</div>'
+          +'<div style="font-size:11px;color:var(--red);margin-top:4px;font-weight:600;">🚗 '+cvEsc(mov.vehiculo||'—')+' · Placas: '+cvEsc(mov.placas||'—')+' · Salida: '+vFmtHora(mov.salidaAt)+'</div>'
+          +'</div>';
+      }
       return '<div style="background:var(--iq-surface);border:1px solid var(--iq-border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;">'
         +'<div><strong style="font-size:12.5px;">'+cvEsc(m.name)+'</strong><div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">Sin checklist registrado hoy</div></div>'
-        +'<span style="font-size:11px;font-weight:700;color:var(--red);white-space:nowrap;">🔴 Pendiente</span>'
+        +'<span style="font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;">⚪ Sin salida de vehículo</span>'
         +'</div>';
     }
     const hora=doc.creadoEn?vFmtHora(doc.creadoEn):'—';
@@ -8607,6 +8836,7 @@ async function vGuardarRegreso(){
     if(rBtn) rBtn.style.display='none';
     const noVeh=document.getElementById('noVehicleAlert');
     if(noVeh) noVeh.style.display='block';
+    mRefrescarBannerChecklist();
   }
   closeModal('vRegresoModal');
   showToast('🏁 Regreso registrado — notificando a guardias');
